@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { clientId, guildId, cargoRP, cargoPVE, canalWhitelistRespostas, categoriaTickets } = require('./config.json');
+const { clientId, guildId, cargoRP, cargoPVE, canalTickets, canalVerificacao, categoriaTickets } = require('./config.json');
 const { enviarMensagemDeTicket } = require('./ticket-message');
 const { enviarMensagemDeVerificacao } = require('./verificacao');
 const ticketHandler = require('./tickets');
@@ -19,11 +19,11 @@ client.once('ready', async () => {
   console.log(`✅ Yellowbot está online como ${client.user.tag}`);
 
   try {
-    const canalTickets = await client.channels.fetch(canalWhitelistRespostas);
-    enviarMensagemDeTicket(canalTickets);
+    const canalTicketsChannel = await client.channels.fetch(canalTickets);
+    enviarMensagemDeTicket(canalTicketsChannel);
 
-    const canalVerificacao = await client.channels.fetch("1401950478761332776"); // canal de verificação
-    enviarMensagemDeVerificacao(canalVerificacao);
+    const canalVerificacaoChannel = await client.channels.fetch(canalVerificacao);
+    enviarMensagemDeVerificacao(canalVerificacaoChannel);
   } catch (err) {
     console.error("Erro ao enviar mensagens iniciais:", err);
   }
