@@ -1,7 +1,6 @@
-
+const { ticketHandler } = require('./tickets');
 const { Client, GatewayIntentBits } = require('discord.js');
 const { token } = require('./config.json');
-const { ticketHandler } = require('./tickets');
 const { enviarMensagemDeTicket } = require('./ticket-message');
 const { enviarMensagemDeVerificacao } = require('./verificacao');
 
