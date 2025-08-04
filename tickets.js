@@ -1,4 +1,3 @@
-
 const { Events, ChannelType, PermissionsBitField } = require('discord.js');
 
 function ticketHandler(client) {
