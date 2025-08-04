@@ -1,27 +1,19 @@
-const { Events, ChannelType, PermissionsBitField } = require('discord.js');
+const { ChannelType, PermissionsBitField } = require('discord.js');
 
 function ticketHandler(client) {
-  client.on(Events.InteractionCreate, async interaction => {
+  client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
-    const ticketTypes = {
-      'ticket_doacao': { nome: '💰-doacao', mensagem: 'Nos envie detalhes sobre sua doação.' },
-      'ticket_denuncia': { nome: '🚨-denuncia', mensagem: 'Descreva sua denúncia com clareza.' },
-      'ticket_suporte': { nome: '⚙️-suporte', mensagem: 'Explique seu problema técnico.' }
-    };
+    let tipo = '';
+    if (interaction.customId === 'ticket_doacao') tipo = 'Doação';
+    else if (interaction.customId === 'ticket_denuncia') tipo = 'Denúncia';
+    else if (interaction.customId === 'ticket_suporte') tipo = 'Suporte Técnico';
+    else return;
 
-    const tipo = ticketTypes[interaction.customId];
-    if (!tipo) return;
-
-    const existing = interaction.guild.channels.cache.find(c => c.name.includes(tipo.nome) && c.topic === interaction.user.id);
-    if (existing) {
-      return interaction.reply({ content: '❗ Você já tem um ticket aberto.', ephemeral: true });
-    }
-
-    const channel = await interaction.guild.channels.create({
-      name: `${tipo.nome}-${interaction.user.username}`,
+    const canal = await interaction.guild.channels.create({
+      name: `🧾┃ticket-${interaction.user.username}`.toLowerCase(),
       type: ChannelType.GuildText,
-      topic: interaction.user.id,
+      parent: interaction.channel.parentId,
       permissionOverwrites: [
         {
           id: interaction.guild.roles.everyone,
@@ -29,14 +21,29 @@ function ticketHandler(client) {
         },
         {
           id: interaction.user.id,
-          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory
+          ]
+        },
+        {
+          id: client.user.id,
+          allow: [PermissionsBitField.Flags.ViewChannel]
         }
       ]
     });
 
-    await channel.send(`<@${interaction.user.id}> ${tipo.mensagem}`);
-    await interaction.reply({ content: `🎫 Ticket criado: ${channel}`, ephemeral: true });
+    canal.send({
+      content: `🎫 Olá ${interaction.user}, obrigado por abrir um ticket de **${tipo}**.
+Em breve um membro da equipe responderá.`,
+    });
+
+    await interaction.reply({
+      content: `✅ Seu ticket de **${tipo}** foi criado com sucesso!`,
+      ephemeral: true
+    });
   });
 }
 
-module.exports = { ticketHandler };
+module.exports = ticketHandler;
