@@ -1,8 +1,9 @@
 {
-"clientId": "1401945111121756170",
+ "clientId": "1401945111121756170",
   "guildId": "1401233767246467333",
   "cargoRP": "1401248793965629502",
   "cargoPVE": "1401248503987962028",
-  "canalWhitelistRespostas": "1401951520114737193",
+  "canalTickets": "1401950478761332776",
+  "canalVerificacao": "1401950478761332776",
   "categoriaTickets": "1401951493539758152"
 }
