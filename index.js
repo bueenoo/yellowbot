@@ -1,6 +1,7 @@
-const { ticketHandler } = require('./tickets');
+
 const { Client, GatewayIntentBits } = require('discord.js');
-const token = process.env.token;
+const { token } = require('./config.json');
+const { ticketHandler } = require('./tickets');
 const { enviarMensagemDeTicket } = require('./ticket-message');
 const { enviarMensagemDeVerificacao } = require('./verificacao');
 
@@ -27,7 +28,7 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
   if (interaction.customId === 'verificar_entrada') {
-    const role = interaction.guild.roles.cache.find(r => r.name === "Sobrevivente");
+    const role = interaction.guild.roles.cache.get("1401249121523859456"); // ID do cargo
     if (!role) return interaction.reply({ content: '❗ Cargo não encontrado.', ephemeral: true });
 
     await interaction.member.roles.add(role);
