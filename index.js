@@ -36,4 +36,5 @@ client.on('interactionCreate', async interaction => {
 });
 
 ticketHandler(client);
+console.log("🔑 Token carregado:", token);
 client.login(token);
