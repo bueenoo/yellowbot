@@ -1,32 +1,30 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
-async function enviarMensagemDeVerificacao(canal) {
-  try {
-    const mensagens = await canal.messages.fetch();
-    if (mensagens.size > 0) return;
+function enviarMensagemDeVerificacao(channel) {
+  const embed = new EmbedBuilder()
+    .setTitle('👋 Bem-vindo ao Black!')
+    .setDescription(
+      'Nosso servidor é uma experiência única de sobrevivência.\n\n' +
+      'Clique em um dos botões abaixo para escolher seu modo de jogo e liberar o acesso:\n\n' +
+      '🎭 **Black RP**: Servidor com whitelist e história\n' +
+      '⚔️ **Black PVE**: Servidor PVE com cadastro via Steam\n\n' +
+      '📜 Seja respeitoso, leia as regras e divirta-se!'
+    )
+    .setColor('#000000')
+    .setFooter({ text: 'Servidor Black • DayZ RP e PVE' });
 
-    const embed = new EmbedBuilder()
-      .setTitle('🌄 Bem-vindo ao Yellowstone!')
-      .setDescription(`Nosso servidor é uma experiência única de sobrevivência.
-Clique no botão abaixo para liberar seu acesso e entrar para nossa comunidade.
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('entrar_rp')
+      .setLabel('🎭 Black RP')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('entrar_pve')
+      .setLabel('⚔️ Black PVE')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
-Seja respeitoso, leia as regras e divirta-se!
-
-🟡 *Ao clicar, você receberá acesso aos canais principais.*`)
-      .setColor('DarkGreen');
-
-    const botao = new ButtonBuilder()
-      .setCustomId('verificar_entrada')
-      .setLabel('✅ Entrar no Yellowstone')
-      .setStyle(ButtonStyle.Success);
-
-    const row = new ActionRowBuilder().addComponents(botao);
-
-    const msg = await canal.send({ embeds: [embed], components: [row] });
-    await msg.pin();
-  } catch (error) {
-    console.error('Erro ao enviar mensagem de verificação:', error);
-  }
+  channel.send({ embeds: [embed], components: [row] });
 }
 
 module.exports = { enviarMensagemDeVerificacao };
