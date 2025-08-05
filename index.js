@@ -1,4 +1,6 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const {
   clientId,
   guildId,
@@ -12,7 +14,7 @@ const { enviarMensagemDeTicket } = require('./ticket-message');
 const { enviarMensagemDeVerificacao } = require('./verificacao');
 const ticketHandler = require('./tickets');
 
-const token = process.env.token; // Token via variável de ambiente
+const token = process.env.token;
 
 const client = new Client({
   intents: [
@@ -23,8 +25,18 @@ const client = new Client({
   ]
 });
 
+// 🔄 Carregar comandos de barra (slash)
+client.commands = new Collection();
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+  const command = require(`./commands/${file}`);
+  client.commands.set(command.data.name, command);
+}
+
 client.once('ready', async () => {
-  console.log(`✅ Yellowbot está online como ${client.user.tag}`);
+  console.log(`✅ Blackbot está online como ${client.user.tag}`);
 
   try {
     const canalTickets = await client.channels.fetch(canalWhitelistRespostas);
@@ -37,19 +49,32 @@ client.once('ready', async () => {
   }
 });
 
+// 🎯 Lidar com interações (botões e comandos)
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isButton()) return;
+  if (interaction.isButton()) {
+    if (interaction.customId === 'verificar_entrada') {
+      const role = interaction.guild.roles.cache.get("1401249121523859456");
+      if (!role) return interaction.reply({ content: '❗ Cargo não encontrado.', ephemeral: true });
 
-  if (interaction.customId === 'verificar_entrada') {
-    const role = interaction.guild.roles.cache.get("1401249121523859456"); // Cargo Sobrevivente RP
-    if (!role) return interaction.reply({ content: '❗ Cargo não encontrado.', ephemeral: true });
+      try {
+        await interaction.member.roles.add(role);
+        await interaction.reply({ content: '✅ Você agora tem acesso ao servidor. Bem-vindo ao Black!', ephemeral: true });
+      } catch (err) {
+        console.error("Erro ao adicionar cargo:", err);
+        await interaction.reply({ content: '❗ Não foi possível atribuir o cargo.', ephemeral: true });
+      }
+    }
+  }
+
+  if (interaction.isChatInputCommand()) {
+    const command = client.commands.get(interaction.commandName);
+    if (!command) return;
 
     try {
-      await interaction.member.roles.add(role);
-      await interaction.reply({ content: '✅ Você agora tem acesso ao servidor. Bem-vindo ao Yellowstone!', ephemeral: true });
-    } catch (err) {
-      console.error("Erro ao adicionar cargo:", err);
-      await interaction.reply({ content: '❗ Não foi possível atribuir o cargo.', ephemeral: true });
+      await command.execute(interaction);
+    } catch (error) {
+      console.error(error);
+      await interaction.reply({ content: '❗ Ocorreu um erro ao executar este comando.', ephemeral: true });
     }
   }
 });
