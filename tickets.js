@@ -1,48 +1,54 @@
 const { ChannelType, PermissionsBitField } = require('discord.js');
+const { categoriaTickets } = require('./config.json');
 
 function ticketHandler(client) {
   client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
-    let tipo = '';
-    if (interaction.customId === 'ticket_doacao') tipo = 'Doação';
-    else if (interaction.customId === 'ticket_denuncia') tipo = 'Denúncia';
-    else if (interaction.customId === 'ticket_suporte') tipo = 'Suporte Técnico';
-    else return;
+    const tipos = {
+      ticket_doacao: '💰・doação',
+      ticket_denuncia: '🚨・denúncia',
+      ticket_suporte: '⚙️・suporte'
+    };
 
-    const canal = await interaction.guild.channels.create({
-      name: `🧾┃ticket-${interaction.user.username}`.toLowerCase(),
-      type: ChannelType.GuildText,
-      parent: interaction.channel.parentId,
-      permissionOverwrites: [
-        {
-          id: interaction.guild.roles.everyone,
-          deny: [PermissionsBitField.Flags.ViewChannel]
-        },
-        {
-          id: interaction.user.id,
-          allow: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages,
-            PermissionsBitField.Flags.ReadMessageHistory
-          ]
-        },
-        {
-          id: client.user.id,
-          allow: [PermissionsBitField.Flags.ViewChannel]
-        }
-      ]
-    });
+    const nomeCanal = tipos[interaction.customId];
+    if (!nomeCanal) return;
 
-    canal.send({
-      content: `🎫 Olá ${interaction.user}, obrigado por abrir um ticket de **${tipo}**.
-Em breve um membro da equipe responderá.`,
-    });
+    const canalExistente = interaction.guild.channels.cache.find(canal =>
+      canal.name === `${nomeCanal}-${interaction.user.username.toLowerCase()}`
+    );
 
-    await interaction.reply({
-      content: `✅ Seu ticket de **${tipo}** foi criado com sucesso!`,
-      ephemeral: true
-    });
+    if (canalExistente) {
+      return interaction.reply({ content: '❗ Você já possui um ticket aberto.', ephemeral: true });
+    }
+
+    try {
+      const canal = await interaction.guild.channels.create({
+        name: `${nomeCanal}-${interaction.user.username}`,
+        type: ChannelType.GuildText,
+        parent: categoriaTickets,
+        permissionOverwrites: [
+          {
+            id: interaction.guild.roles.everyone,
+            deny: [PermissionsBitField.Flags.ViewChannel]
+          },
+          {
+            id: interaction.user.id,
+            allow: [
+              PermissionsBitField.Flags.ViewChannel,
+              PermissionsBitField.Flags.SendMessages,
+              PermissionsBitField.Flags.ReadMessageHistory
+            ]
+          }
+        ]
+      });
+
+      await canal.send(`🎟️ Olá <@${interaction.user.id}>, em que podemos ajudar?`);
+      await interaction.reply({ content: '✅ Ticket criado com sucesso.', ephemeral: true });
+    } catch (error) {
+      console.error('Erro ao criar ticket:', error);
+      await interaction.reply({ content: '❗ Ocorreu um erro ao criar o ticket.', ephemeral: true });
+    }
   });
 }
 
