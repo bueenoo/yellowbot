@@ -1,6 +1,7 @@
 
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
-const { token } = require('./config.json');
+const token = process.env.token;
+client.login(token);
 const { enviarMensagemDeVerificacao } = require('./utils/mensagemVerificacao');
 
 const client = new Client({
