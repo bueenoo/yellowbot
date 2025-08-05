@@ -1,9 +1,13 @@
 {
-  "name": "yellowbot",
+  "name": "blackbot",
   "version": "1.0.0",
+  "description": "Bot do servidor Black para DayZ",
   "main": "index.js",
-  "license": "MIT",
+  "scripts": {
+    "start": "node run-deploy.js && node index.js"
+  },
   "dependencies": {
-    "discord.js": "^14.11.0"
+    "discord.js": "^14.11.0",
+    "dotenv": "^16.3.1"
   }
 }
