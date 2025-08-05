@@ -1,3 +1,4 @@
+// Conteúdo atualizado do index.js (vindo da última versão validada)
 const fs = require('fs');
 const path = require('path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
@@ -13,7 +14,6 @@ const {
 const { enviarMensagemDeTicket } = require('./ticket-message');
 const { enviarMensagemDeVerificacao } = require('./verificacao');
 const ticketHandler = require('./tickets');
-const steamHandler = require('./steam-handler');
 
 const token = process.env.token;
 
@@ -37,9 +37,11 @@ for (const file of commandFiles) {
 
 client.once('ready', async () => {
   console.log(`✅ Blackbot está online como ${client.user.tag}`);
+
   try {
     const canalTickets = await client.channels.fetch(canalWhitelistRespostas);
     enviarMensagemDeTicket(canalTickets);
+
     const canalVerificacaoFinal = await client.channels.fetch(canalVerificacao);
     enviarMensagemDeVerificacao(canalVerificacaoFinal);
   } catch (err) {
@@ -49,12 +51,17 @@ client.once('ready', async () => {
 
 client.on('interactionCreate', async interaction => {
   if (interaction.isButton()) {
-    if (interaction.customId === 'verificar_rp') {
-      await interaction.reply({ content: '📋 Vá até o canal de whitelist e siga as instruções para RP.', ephemeral: true });
-    }
-    if (interaction.customId === 'verificar_pve') {
-      const canalPVE = await interaction.guild.channels.fetch("1401951160629461002");
-      await interaction.reply({ content: `⚔️ Vá para ${canalPVE.toString()} e envie sua Steam ID para cadastro.`, ephemeral: true });
+    if (interaction.customId === 'verificar_entrada') {
+      const role = interaction.guild.roles.cache.get("1401249121523859456");
+      if (!role) return interaction.reply({ content: '❗ Cargo não encontrado.', flags: 64 });
+
+      try {
+        await interaction.member.roles.add(role);
+        await interaction.reply({ content: '✅ Você agora tem acesso ao servidor. Bem-vindo ao Black!', flags: 64 });
+      } catch (err) {
+        console.error("Erro ao adicionar cargo:", err);
+        await interaction.reply({ content: '❗ Não foi possível atribuir o cargo.', flags: 64 });
+      }
     }
   }
 
@@ -65,13 +72,9 @@ client.on('interactionCreate', async interaction => {
       await command.execute(interaction);
     } catch (error) {
       console.error(error);
-      await interaction.reply({ content: '❗ Ocorreu um erro ao executar este comando.', ephemeral: true });
+      await interaction.reply({ content: '❗ Ocorreu um erro ao executar este comando.', flags: 64 });
     }
   }
-});
-
-client.on('messageCreate', message => {
-  steamHandler(client, message);
 });
 
 ticketHandler(client);

@@ -7,7 +7,7 @@ module.exports = {
 
   async execute(interaction) {
     if (interaction.channelId !== '1402172138395271239') {
-      return interaction.reply({ content: '❗ Este comando só pode ser usado no canal oficial de informações.', ephemeral: true });
+      return interaction.reply({ content: '❗ Este comando só pode ser usado no canal oficial de informações.', flags: 64 });
     }
 
     const onlineCount = interaction.guild.members.cache.filter(m => m.presence && m.presence.status !== 'offline').size;
@@ -33,6 +33,6 @@ module.exports = {
 Entre, sobreviva e construa sua história em Chernarus.`)
       .setFooter({ text: 'Servidor Black • DayZ RP e PVE' });
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 });
   }
 };
