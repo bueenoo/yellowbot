@@ -7,17 +7,12 @@ async function enviarMensagemDeVerificacao(canal) {
 
     const embed = new EmbedBuilder()
       .setTitle('🌄 Bem-vindo ao Yellowstone!')
-      .setDescription(
-        "Nosso servidor é uma experiência única de sobrevivência.
-" +
-        "Clique no botão abaixo para liberar seu acesso e entrar para nossa comunidade.
+      .setDescription(`Nosso servidor é uma experiência única de sobrevivência.
+Clique no botão abaixo para liberar seu acesso e entrar para nossa comunidade.
 
-" +
-        "Seja respeitoso, leia as regras e divirta-se!
+Seja respeitoso, leia as regras e divirta-se!
 
-" +
-        "🟡 *Ao clicar, você receberá acesso aos canais principais.*"
-      )
+🟡 *Ao clicar, você receberá acesso aos canais principais.*`)
       .setColor('DarkGreen');
 
     const botao = new ButtonBuilder()
