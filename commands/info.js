@@ -6,7 +6,6 @@ module.exports = {
     .setDescription('Mostra as informações principais do servidor Black'),
 
   async execute(interaction) {
-    // Permitir apenas no canal específico
     if (interaction.channelId !== '1402172138395271239') {
       return interaction.reply({ content: '❗ Este comando só pode ser usado no canal oficial de informações.', ephemeral: true });
     }
