@@ -52,16 +52,32 @@ client.once('ready', async () => {
 // 🎯 Lidar com interações (botões e comandos)
 client.on('interactionCreate', async interaction => {
   if (interaction.isButton()) {
-    if (interaction.customId === 'verificar_entrada') {
-      const role = interaction.guild.roles.cache.get("1401249121523859456");
-      if (!role) return interaction.reply({ content: '❗ Cargo não encontrado.', ephemeral: true });
+    const member = interaction.member;
+
+    if (interaction.customId === 'entrar_rp') {
+      const role = interaction.guild.roles.cache.get(cargoRP);
+      if (!role) return interaction.reply({ content: '❗ Cargo RP não encontrado.', ephemeral: true });
 
       try {
-        await interaction.member.roles.add(role);
-        await interaction.reply({ content: '✅ Você agora tem acesso ao servidor. Bem-vindo ao Black!', ephemeral: true });
+        await member.roles.add(role);
+        await interaction.reply({ content: '🎭 Você agora tem acesso à whitelist RP! Acesse o canal de inscrição.', ephemeral: true });
       } catch (err) {
-        console.error("Erro ao adicionar cargo:", err);
-        await interaction.reply({ content: '❗ Não foi possível atribuir o cargo.', ephemeral: true });
+        console.error("Erro ao adicionar cargo RP:", err);
+        await interaction.reply({ content: '❗ Não foi possível atribuir o cargo RP.', ephemeral: true });
+      }
+    }
+
+    if (interaction.customId === 'entrar_pve') {
+      try {
+        const canalCadastro = await interaction.guild.channels.fetch('1401951160629461002');
+        await interaction.reply({ content: `⚔️ Vá até o canal <#1401951160629461002> e envie sua Steam ID para liberar o acesso.`, ephemeral: true });
+        await canalCadastro.permissionOverwrites.edit(member.id, {
+          ViewChannel: true,
+          SendMessages: true
+        });
+      } catch (err) {
+        console.error("Erro ao liberar canal Steam ID:", err);
+        await interaction.reply({ content: '❗ Não foi possível liberar o canal de cadastro PVE.', ephemeral: true });
       }
     }
   }
