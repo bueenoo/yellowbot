@@ -1,5 +1,3 @@
-// Deploy dos slash commands
-// ✅ Se TOKEN/CLIENT_ID/GUILD_ID estiverem ausentes (ex.: ambiente local), apenas pula o deploy.
 require('dotenv').config();
 const { REST, Routes } = require('discord.js');
 const fs = require('fs');
@@ -20,7 +18,7 @@ if (fs.existsSync(commandsDir)) {
 }
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
-  console.log('⚠️ Variáveis ausentes (TOKEN/CLIENT_ID/GUILD_ID). Pulando deploy sem erro.');
+  console.log('⚠️ TOKEN/CLIENT_ID/GUILD_ID ausentes — pulando deploy sem erro.');
   process.exit(0);
 }
 
@@ -29,10 +27,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 (async () => {
   try {
     console.log(`⏳ Registrando ${commands.length} comando(s) em guild ${GUILD_ID}...`);
-    await rest.put(
-      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-      { body: commands },
-    );
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
     console.log('✅ Comandos registrados com sucesso!');
   } catch (err) {
     console.error('❌ Falha ao registrar comandos.');
