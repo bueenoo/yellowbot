@@ -1,3 +1,5 @@
+// Deploy dos slash commands
+// ✅ Se TOKEN/CLIENT_ID/GUILD_ID estiverem ausentes (ex.: ambiente local), apenas pula o deploy.
 require('dotenv').config();
 const { REST, Routes } = require('discord.js');
 const fs = require('fs');
@@ -7,10 +9,6 @@ const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
-if (!TOKEN) throw new Error('TOKEN ausente (defina em .env ou no host).');
-if (!CLIENT_ID) throw new Error('CLIENT_ID ausente (defina em .env ou no host).');
-if (!GUILD_ID) throw new Error('GUILD_ID ausente (defina em .env ou no host).');
-
 const commands = [];
 const commandsDir = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsDir)) {
@@ -19,6 +17,11 @@ if (fs.existsSync(commandsDir)) {
     const cmd = require(path.join(commandsDir, file));
     if (cmd?.data?.toJSON) commands.push(cmd.data.toJSON());
   }
+}
+
+if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
+  console.log('⚠️ Variáveis ausentes (TOKEN/CLIENT_ID/GUILD_ID). Pulando deploy sem erro.');
+  process.exit(0);
 }
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);

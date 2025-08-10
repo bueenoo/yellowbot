@@ -1,7 +1,7 @@
 {
   "name": "blackbot",
-  "version": "1.1.0",
-  "description": "Discord bot para whitelist RP/PVE do servidor Black (DayZ).",
+  "version": "1.3.0",
+  "description": "Discord bot (DayZ) — whitelist RP/PVE. Token only required on Railway/production.",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
@@ -13,6 +13,6 @@
   },
   "dependencies": {
     "discord.js": "^14.16.3",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.4.5"
   }
 }

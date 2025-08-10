@@ -1,3 +1,4 @@
+// Bot inicia apenas quando o TOKEN existe (ex.: Railway). Localmente você pode instalar deps e rodar deploy (que ignora sem TOKEN).
 require('dotenv').config();
 const {
   Client,
@@ -23,6 +24,11 @@ const {
   cargoPVE,
 } = require('./config.json');
 
+if (!process.env.TOKEN) {
+  console.log('ℹ️ TOKEN não encontrado no ambiente. O bot não será iniciado (isso é esperado fora do Railway).');
+  process.exit(0);
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -34,14 +40,12 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-// Cache simples para impedir múltiplos cadastros PVE por usuário durante o uptime
 const pveRegistered = new Set();
 
 client.once('ready', async () => {
   console.log(`✅ Bot iniciado como ${client.user.tag}`);
 });
 
-// Helper para perguntar no DM
 async function ask(dm, userId, text, timeMs = 5 * 60 * 1000) {
   await dm.send(text);
   const collected = await dm.awaitMessages({
@@ -53,7 +57,6 @@ async function ask(dm, userId, text, timeMs = 5 * 60 * 1000) {
   return collected.first().content?.trim() || '';
 }
 
-// Carregador de comandos de ./commands
 const fs = require('fs');
 const path = require('path');
 const commands = new Map();
@@ -70,7 +73,6 @@ if (fs.existsSync(commandsDir)) {
 
 client.on('interactionCreate', async (interaction) => {
   try {
-    // Slash commands
     if (interaction.isChatInputCommand()) {
       const cmd = commands.get(interaction.commandName);
       if (cmd) return cmd.execute(interaction);
@@ -79,38 +81,24 @@ client.on('interactionCreate', async (interaction) => {
 
     if (!interaction.isButton() && !interaction.isModalSubmit()) return;
 
-    // ====== Fluxo RP (verificar_rp) ======
     if (interaction.isButton() && interaction.customId === 'verificar_rp') {
       const user = interaction.user;
-
       await interaction.reply({
-        content:
-          '📬 Iniciamos sua whitelist no DM. Se o DM não chegar, verifique suas configurações de privacidade.',
+        content: '📬 Iniciamos sua whitelist no DM. Se o DM não chegar, verifique suas configurações de privacidade.',
         ephemeral: true,
       });
 
       const dm = await user.createDM();
-
       const nome = await ask(dm, user.id, 'Qual é o seu **nome**?');
       const idade = await ask(dm, user.id, 'Qual sua **idade**?');
       const steam = await ask(dm, user.id, 'Qual sua **Steam ID**?');
 
-      // Pergunta de experiência com botões
       const expRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('exp_sim')
-          .setLabel('Sim')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId('exp_nao')
-          .setLabel('Não')
-          .setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('exp_sim').setLabel('Sim').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('exp_nao').setLabel('Não').setStyle(ButtonStyle.Danger)
       );
 
-      await dm.send({
-        content: 'Você tem **experiência com RP**?',
-        components: [expRow],
-      });
+      await dm.send({ content: 'Você tem **experiência com RP**?', components: [expRow] });
 
       const expInteraction = await dm.awaitMessageComponent({
         componentType: ComponentType.Button,
@@ -119,26 +107,15 @@ client.on('interactionCreate', async (interaction) => {
       });
 
       const experiencia = expInteraction.customId === 'exp_sim' ? 'Sim' : 'Não';
-      await expInteraction.update({
-        content: `Experiência com RP: **${experiencia}**`,
-        components: [],
-      });
+      await expInteraction.update({ content: `Experiência com RP: **${experiencia}**`, components: [] });
 
-      // História até 250 chars
       let historia = '';
       while (true) {
-        historia = await ask(
-          dm,
-          user.id,
-          'Você pode escrever **até 250 caracteres**. Envie agora a **história do seu personagem**.'
-        );
+        historia = await ask(dm, user.id, 'Você pode escrever **até 250 caracteres**. Envie agora a **história do seu personagem**.');
         if (historia.length <= 250) break;
-        await dm.send(
-          '⚠️ A história deve ter **no máximo 250 caracteres**. Tente novamente.'
-        );
+        await dm.send('⚠️ A história deve ter **no máximo 250 caracteres**. Tente novamente.');
       }
 
-      // Embed para staff
       const embed = new EmbedBuilder()
         .setColor(0x000000)
         .setTitle('📥 Nova Whitelist (RP)')
@@ -152,28 +129,18 @@ client.on('interactionCreate', async (interaction) => {
         )
         .setTimestamp();
 
-      // Botões Staff
       const staffRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`wl_aprovar_${user.id}`)
-          .setLabel('✅ Aprovar')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`wl_reprovar_${user.id}`)
-          .setLabel('❌ Reprovar')
-          .setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId(`wl_aprovar_${user.id}`).setLabel('✅ Aprovar').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`wl_reprovar_${user.id}`).setLabel('❌ Reprovar').setStyle(ButtonStyle.Danger)
       );
 
       const staffChannel = await client.channels.fetch(canalWhitelistRespostas);
       await staffChannel.send({ embeds: [embed], components: [staffRow] });
 
-      await dm.send(
-        '✅ Suas respostas foram enviadas para análise da staff. Aguarde o resultado.'
-      );
+      await dm.send('✅ Suas respostas foram enviadas para análise da staff. Aguarde o resultado.');
       return;
     }
 
-    // ====== Aprovar / Reprovar WL ======
     if (interaction.isButton() && interaction.customId.startsWith('wl_aprovar_')) {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
         return interaction.reply({ content: '🚫 Sem permissão para aprovar.', ephemeral: true });
@@ -195,16 +162,8 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ content: '🚫 Sem permissão para reprovar.', ephemeral: true });
       }
       const userId = interaction.customId.split('wl_reprovar_')[1];
-      // Abrir modal para motivo
-      const modal = new ModalBuilder()
-        .setCustomId(`wl_motivo_${userId}`)
-        .setTitle('Motivo da reprovação');
-      const motivo = new TextInputBuilder()
-        .setCustomId('motivo')
-        .setLabel('Explique o motivo')
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
-        .setMaxLength(400);
+      const modal = new ModalBuilder().setCustomId(`wl_motivo_${userId}`).setTitle('Motivo da reprovação');
+      const motivo = new TextInputBuilder().setCustomId('motivo').setLabel('Explique o motivo').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(400);
       const row = new ActionRowBuilder().addComponents(motivo);
       modal.addComponents(row);
       await interaction.showModal(modal);
@@ -218,7 +177,6 @@ client.on('interactionCreate', async (interaction) => {
       if (member) {
         await member.send(`❌ Sua whitelist foi **reprovada**.\nMotivo: ${motivo}`).catch(() => null);
       }
-      // Envia também no canal de reprovados, se existir
       if (canalReprovados && canalReprovados !== '1402206198668853299') {
         try {
           const ch = await interaction.client.channels.fetch(canalReprovados);
@@ -229,28 +187,16 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    // ====== Fluxo PVE ======
     if (interaction.isButton() && interaction.customId === 'verificar_pve') {
-      // instruções + apontar para o canal correto
-      return interaction.reply({
-        content: `⚔️ Vá até o canal <#${canalPVEForm}> e clique no botão **Enviar Steam ID** para cadastrar.`,
-        ephemeral: true,
-      });
+      return interaction.reply({ content: `⚔️ Vá até o canal <#${canalPVEForm}> e clique no botão **Enviar Steam ID** para cadastrar.`, ephemeral: true });
     }
 
     if (interaction.isButton() && interaction.customId === 'pve_enviar_steam') {
       if (pveRegistered.has(interaction.user.id)) {
         return interaction.reply({ content: '✅ Você já cadastrou sua Steam ID.', ephemeral: true });
       }
-      const modal = new ModalBuilder()
-        .setCustomId('pve_modal_steam')
-        .setTitle('Cadastro PVE — Steam ID');
-      const input = new TextInputBuilder()
-        .setCustomId('steamid')
-        .setLabel('Informe sua Steam ID (número)')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMaxLength(32);
+      const modal = new ModalBuilder().setCustomId('pve_modal_steam').setTitle('Cadastro PVE — Steam ID');
+      const input = new TextInputBuilder().setCustomId('steamid').setLabel('Informe sua Steam ID (número)').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(32);
       const row = new ActionRowBuilder().addComponents(input);
       modal.addComponents(row);
       await interaction.showModal(modal);
@@ -260,35 +206,26 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isModalSubmit() && interaction.customId === 'pve_modal_steam') {
       const steamId = interaction.fields.getTextInputValue('steamid').trim();
       const user = interaction.user;
-      pveRegistered.add(user.id); // marca como usado
-
-      // Loga no canal de registro PVE
+      pveRegistered.add(user.id);
       try {
         const logCh = await client.channels.fetch(canalRegistroPVE);
-        await logCh.send({
-          content: `📝 **Registro PVE**\n**Discord:** <@${user.id}> (${user.tag})\n**Steam ID:** ${steamId}\n**Data:** <t:${Math.floor(Date.now()/1000)}:F>`
-        });
+        await logCh.send({ content: `📝 **Registro PVE**\n**Discord:** <@${user.id}> (${user.tag})\n**Steam ID:** ${steamId}\n**Data:** <t:${Math.floor(Date.now()/1000)}:F>` });
       } catch (e) {
         console.error('Falha ao logar registro PVE:', e);
       }
-
-      // Dá cargo PVE, se configurado
       try {
         const member = await interaction.guild.members.fetch(user.id).catch(() => null);
         if (member && cargoPVE !== 'ID_CARGO_PVE') {
           await member.roles.add(cargoPVE).catch(() => null);
         }
       } catch {}
-
       await interaction.reply({ content: '✅ Steam ID registrada. Bem-vindo ao PVE!', ephemeral: true });
       return;
     }
   } catch (err) {
     console.error('Erro em interactionCreate:', err);
     if (interaction?.isRepliable?.()) {
-      try {
-        await interaction.reply({ content: '❌ Erro ao processar sua ação. Tente novamente.', ephemeral: true });
-      } catch {}
+      try { await interaction.reply({ content: '❌ Erro ao processar sua ação. Tente novamente.', ephemeral: true }); } catch {}
     }
   }
 });

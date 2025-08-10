@@ -1,12 +1,14 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, ChannelType } = require('discord.js');
 const { enviarMensagemDeVerificacao } = require('../verificacao');
 const { publicarCadastroPVE } = require('../pve_message');
+
+// Travado para @Staff
+const STAFF_ROLE_ID = '1401235779748892694';
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Publica as mensagens iniciais de verificação e cadastro PVE.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDescription('Publica as mensagens iniciais de verificação e cadastro PVE. (Apenas Staff)')
     .addStringOption(opt =>
       opt.setName('acao')
         .setDescription('O que publicar')
@@ -19,22 +21,22 @@ module.exports = {
     )
     .addChannelOption(opt =>
       opt.setName('canal_verificacao')
-        .setDescription('Canal para postar a verificação (opcional, usa o padrão do config se vazio)')
+        .setDescription('Canal para verificação (opcional; usa o config se vazio)')
         .addChannelTypes(ChannelType.GuildText)
     )
     .addChannelOption(opt =>
       opt.setName('canal_pve')
-        .setDescription('Canal para postar o cadastro PVE (opcional, usa o padrão do config se vazio)')
+        .setDescription('Canal para cadastro PVE (opcional; usa o config se vazio)')
         .addChannelTypes(ChannelType.GuildText)
     ),
   async execute(interaction) {
-    const STAFF_ROLE_ID = '1401235779748892694';
     if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
       return interaction.reply({
         content: '🚫 Apenas membros com o cargo @Staff podem usar este comando.',
         ephemeral: true,
       });
     }
+
     const acao = interaction.options.getString('acao');
     const chVer = interaction.options.getChannel('canal_verificacao');
     const chPve = interaction.options.getChannel('canal_pve');
