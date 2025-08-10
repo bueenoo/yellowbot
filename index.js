@@ -183,14 +183,83 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       if (interaction.customId === 'ticket_close') {
-        // Remove permissão de enviar mensagens do autor
-        const ownerId = (interaction.channel.topic || '').replace('TICKET:', '');
-        if (ownerId) {
-          await interaction.channel.permissionOverwrites.edit(ownerId, { SendMessages: false }).catch(() => {});
+  // Permissão: autor do ticket ou Staff
+  const isStaff = interaction.member.roles.cache.has(staffRoleId) || interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels);
+  const isOwner = interaction.channel.topic === `TICKET:${interaction.user.id}`;
+  if (!isStaff && !isOwner) {
+    return interaction.reply({ content: '🚫 Você não pode fechar este ticket.', ephemeral: true });
+  }
+
+  // Descobre dono do ticket a partir do topic
+  const ownerId = (interaction.channel.topic || '').replace('TICKET:', '');
+  let ownerUser = null;
+  try { if (ownerId) ownerUser = await interaction.client.users.fetch(ownerId); } catch {}
+
+  // Coleta histórico do canal (paginado)
+  async function coletarMensagensTexto(channel) {
+    let lastId = null;
+    const linhas = [];
+    while (true) {
+      const fetched = await channel.messages.fetch({ limit: 100, before: lastId ?? undefined });
+      if (fetched.size === 0) break;
+      const arr = Array.from(fetched.values());
+      arr.reverse(); // mais antigo -> mais novo
+      for (const m of arr) {
+        const ts = new Date(m.createdTimestamp).toISOString().replace('T', ' ').split('.')[0];
+        let base = `[${ts}] ${m.author?.tag ?? m.author?.id ?? 'Desconhecido'}: ${m.content ?? ''}`.trim();
+        if (m.attachments.size > 0) {
+          const anexos = m.attachments.map(a => a.url).join(', ');
+          base += ` 
+[Anexos] ${anexos}`;
         }
-        await interaction.reply({ content: '🔒 Ticket fechado. Um membro da staff pode apagar quando finalizar.', ephemeral: true });
-        return;
+        linhas.push(base);
       }
+      lastId = arr[0]?.id;
+    }
+    return linhas.join('
+');
+  }
+
+  let texto = await coletarMensagensTexto(interaction.channel);
+  const header = [
+    `Servidor: ${interaction.guild?.name ?? interaction.guildId}`,
+    `Canal: #${interaction.channel?.name}`,
+    `Ticket de: ${ownerId ? `<@${ownerId}>` : 'desconhecido'}`,
+    `Fechado por: <@${interaction.user.id}>`,
+    `Data de fechamento: ${new Date().toISOString().replace('T', ' ').split('.')[0]}`,
+    ''.padEnd(40, '='),
+  ].join('
+');
+
+  const corpo = `${header}
+${texto}`;
+  const { AttachmentBuilder } = require('discord.js');
+  const nomeArquivo = `transcript-${interaction.channel?.name}-${Date.now()}.txt`;
+  const anexo = new AttachmentBuilder(Buffer.from(corpo, 'utf8'), { name: nomeArquivo });
+
+  // DM para o dono do ticket (se possível)
+  if (ownerUser) {
+    try {
+      await ownerUser.send({ content: '🔒 Seu ticket foi fechado. Segue uma cópia do histórico:', files: [anexo] });
+    } catch {}
+  }
+
+  // Envia no canal de arquivos para a staff
+  try {
+    const { canalArquivosTickets } = require('./config.json');
+    if (canalArquivosTickets) {
+      const staffCh = await interaction.client.channels.fetch(canalArquivosTickets);
+      await staffCh.send({ content: `📎 Transcript do ticket ${interaction.channel} fechado por <@${interaction.user.id}>.`, files: [anexo] });
+    }
+  } catch (e) { console.error('Falha ao enviar transcript para staff:', e); }
+
+  // Fechar: remove permissão de enviar do autor
+  if (ownerId) {
+    try { await interaction.channel.permissionOverwrites.edit(ownerId, { SendMessages: false }); } catch {}
+  }
+  await interaction.reply({ content: '🔒 Ticket fechado. Transcript enviado por DM e para a staff.', ephemeral: true });
+  return;
+}
 
       if (interaction.customId === 'ticket_delete') {
         if (!isStaff) {
