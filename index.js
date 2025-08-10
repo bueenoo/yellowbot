@@ -12,6 +12,8 @@ const {
   TextInputBuilder,
   TextInputStyle,
   PermissionsBitField,
+  REST,
+  Routes,
 } = require('discord.js');
 
 const {
@@ -23,20 +25,13 @@ const {
   cargoPVE,
 } = require('./config.json');
 
-const { registerGuildCommands } = require('./register-commands');
+const fs = require('fs');
+const path = require('path');
 
 if (!process.env.TOKEN) {
-  console.log('ℹ️ TOKEN não encontrado no ambiente. O bot não será iniciado (isso é esperado fora do Railway).');
+  console.log('ℹ️ TOKEN não encontrado no ambiente. O bot não será iniciado.');
   process.exit(0);
 }
-
-(async () => {
-  try {
-    await registerGuildCommands();
-  } catch (e) {
-    console.error('Falha ao registrar comandos automaticamente:', e);
-  }
-})();
 
 const client = new Client({
   intents: [
@@ -49,51 +44,55 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-const fs = require('fs');
-const path = require('path');
-const commands = new Map();
-const commandsDir = path.join(__dirname, 'commands');
-if (fs.existsSync(commandsDir)) {
-  const files = fs.readdirSync(commandsDir).filter(f => f.endsWith('.js'));
-  for (const file of files) {
-    const cmd = require(path.join(commandsDir, file));
-    if (cmd?.data?.name && typeof cmd.execute === 'function') {
-      commands.set(cmd.data.name, cmd);
-    }
+// Carrega comandos para executar e para registrar
+const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(f => f.endsWith('.js'));
+const commandMap = new Map();
+const commandData = [];
+for (const file of commandFiles) {
+  const mod = require(path.join(__dirname, 'commands', file));
+  if (mod?.data?.name && typeof mod.execute === 'function') {
+    commandMap.set(mod.data.name, mod);
   }
+  if (mod?.data?.toJSON) commandData.push(mod.data.toJSON());
 }
+
+client.once('ready', async () => {
+  console.log(`✅ Bot iniciado como ${client.user.tag}`);
+
+  // Auto-registra para todas as guilds em que o bot está
+  try {
+    const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+    const guilds = client.guilds.cache.map(g => g.id);
+    for (const gid of guilds) {
+      console.log(`⏳ Registrando ${commandData.length} comando(s) na guild ${gid}...`);
+      await rest.put(Routes.applicationGuildCommands(client.application.id, gid), { body: commandData });
+      console.log(`✅ Comandos registrados em ${gid}`);
+    }
+  } catch (e) {
+    console.error('❌ Falha ao registrar comandos após login:', e);
+  }
+});
 
 // Cache simples para impedir múltiplos cadastros PVE por usuário durante o uptime
 const pveRegistered = new Set();
 
-client.once('ready', async () => {
-  console.log(`✅ Bot iniciado como ${client.user.tag}`);
-});
-
-// Helper para perguntar no DM
 async function ask(dm, userId, text, timeMs = 5 * 60 * 1000) {
   await dm.send(text);
-  const collected = await dm.awaitMessages({
-    filter: (m) => m.author.id === userId,
-    max: 1,
-    time: timeMs,
-  });
+  const collected = await dm.awaitMessages({ filter: (m) => m.author.id === userId, max: 1, time: timeMs });
   if (!collected.size) throw new Error('Tempo esgotado');
   return collected.first().content?.trim() || '';
 }
 
 client.on('interactionCreate', async (interaction) => {
   try {
-    // Slash commands
     if (interaction.isChatInputCommand()) {
-      const cmd = commands.get(interaction.commandName);
+      const cmd = commandMap.get(interaction.commandName);
       if (cmd) return cmd.execute(interaction);
       return;
     }
 
     if (!interaction.isButton() && !interaction.isModalSubmit()) return;
 
-    // ====== Fluxo PVE ======
     if (interaction.isButton() && interaction.customId === 'verificar_pve') {
       return interaction.reply({ content: `⚔️ Vá até o canal <#${canalPVEForm}> e clique no botão **Enviar Steam ID** para cadastrar.`, ephemeral: true });
     }
@@ -117,60 +116,38 @@ client.on('interactionCreate', async (interaction) => {
       try {
         const logCh = await interaction.client.channels.fetch(canalRegistroPVE);
         await logCh.send({ content: `📝 **Registro PVE**\n**Discord:** <@${user.id}> (${user.tag})\n**Steam ID:** ${steamId}\n**Data:** <t:${Math.floor(Date.now()/1000)}:F>` });
-      } catch (e) {
-        console.error('Falha ao logar registro PVE:', e);
-      }
+      } catch (e) { console.error('Falha ao logar registro PVE:', e); }
       try {
         const member = await interaction.guild.members.fetch(user.id).catch(() => null);
-        if (member && cargoPVE) {
-          await member.roles.add(cargoPVE).catch(() => null);
-        }
+        if (member && cargoPVE) await member.roles.add(cargoPVE).catch(() => null);
       } catch {}
       await interaction.reply({ content: '✅ Steam ID registrada. Bem-vindo ao PVE!', ephemeral: true });
       return;
     }
 
-    // ====== Fluxo RP (botão de verificação) ======
     if (interaction.isButton() && interaction.customId === 'verificar_rp') {
       const user = interaction.user;
-
-      await interaction.reply({
-        content: '📬 Iniciamos sua whitelist no DM. Se o DM não chegar, verifique suas configurações de privacidade.',
-        ephemeral: true,
-      });
-
+      await interaction.reply({ content: '📬 Iniciamos sua whitelist no DM. Se o DM não chegar, verifique suas configurações de privacidade.', ephemeral: true });
       const dm = await user.createDM();
-
       const nome = await ask(dm, user.id, 'Qual é o seu **nome**?');
       const idade = await ask(dm, user.id, 'Qual sua **idade**?');
       const steam = await ask(dm, user.id, 'Qual sua **Steam ID**?');
-
       const expRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('exp_sim').setLabel('Sim').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId('exp_nao').setLabel('Não').setStyle(ButtonStyle.Danger)
       );
-
       await dm.send({ content: 'Você tem **experiência com RP**?', components: [expRow] });
-
-      const expInteraction = await dm.awaitMessageComponent({
-        componentType: ComponentType.Button,
-        filter: (i) => i.user.id === user.id,
-        time: 5 * 60 * 1000,
-      });
-
+      const expInteraction = await dm.awaitMessageComponent({ componentType: ComponentType.Button, filter: (i) => i.user.id === user.id, time: 5 * 60 * 1000 });
       const experiencia = expInteraction.customId === 'exp_sim' ? 'Sim' : 'Não';
       await expInteraction.update({ content: `Experiência com RP: **${experiencia}**`, components: [] });
-
       let historia = '';
       while (true) {
         historia = await ask(dm, user.id, 'Você pode escrever **até 250 caracteres**. Envie agora a **história do seu personagem**.');
         if (historia.length <= 250) break;
         await dm.send('⚠️ A história deve ter **no máximo 250 caracteres**. Tente novamente.');
       }
-
       const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setTitle('📥 Nova Whitelist (RP)')
+        .setColor(0x000000).setTitle('📥 Nova Whitelist (RP)')
         .addFields(
           { name: 'Usuário', value: `<@${user.id}>`, inline: false },
           { name: 'Nome', value: nome || '—', inline: true },
@@ -178,22 +155,17 @@ client.on('interactionCreate', async (interaction) => {
           { name: 'Steam ID', value: steam || '—', inline: false },
           { name: 'Experiência com RP', value: experiencia, inline: true },
           { name: 'História', value: historia || '—', inline: false }
-        )
-        .setTimestamp();
-
+        ).setTimestamp();
       const staffRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`wl_aprovar_${user.id}`).setLabel('✅ Aprovar').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId(`wl_reprovar_${user.id}`).setLabel('❌ Reprovar').setStyle(ButtonStyle.Danger)
       );
-
       const staffChannel = await interaction.client.channels.fetch(canalWhitelistRespostas);
       await staffChannel.send({ embeds: [embed], components: [staffRow] });
-
       await dm.send('✅ Suas respostas foram enviadas para análise da staff. Aguarde o resultado.');
       return;
     }
 
-    // ====== Aprovar / Reprovar WL ======
     if (interaction.isButton() && interaction.customId.startsWith('wl_aprovar_')) {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
         return interaction.reply({ content: '🚫 Sem permissão para aprovar.', ephemeral: true });
@@ -201,9 +173,7 @@ client.on('interactionCreate', async (interaction) => {
       const userId = interaction.customId.split('wl_aprovar_')[1];
       const member = await interaction.guild.members.fetch(userId).catch(() => null);
       if (member) {
-        if (cargoRP) {
-          await member.roles.add(cargoRP).catch(console.error);
-        }
+        if (cargoRP) await member.roles.add(cargoRP).catch(console.error);
         await member.send('✅ Sua whitelist foi **aprovada**! Bem-vindo ao RP.').catch(() => null);
       }
       await interaction.reply({ content: 'Usuário aprovado.', ephemeral: true });
@@ -227,23 +197,16 @@ client.on('interactionCreate', async (interaction) => {
       const userId = interaction.customId.split('wl_motivo_')[1];
       const motivo = interaction.fields.getTextInputValue('motivo');
       const member = await interaction.guild.members.fetch(userId).catch(() => null);
-      if (member) {
-        await member.send(`❌ Sua whitelist foi **reprovada**.\nMotivo: ${motivo}`).catch(() => null);
-      }
+      if (member) await member.send(`❌ Sua whitelist foi **reprovada**.\nMotivo: ${motivo}`).catch(() => null);
       if (canalReprovados) {
-        try {
-          const ch = await interaction.client.channels.fetch(canalReprovados);
-          await ch.send({ content: `Usuário <@${userId}> reprovado.\nMotivo: ${motivo}` });
-        } catch {}
+        try { const ch = await interaction.client.channels.fetch(canalReprovados); await ch.send({ content: `Usuário <@${userId}> reprovado.\nMotivo: ${motivo}` }); } catch {}
       }
       await interaction.reply({ content: 'Reprovação registrada.', ephemeral: true });
       return;
     }
   } catch (err) {
     console.error('Erro em interactionCreate:', err);
-    if (interaction?.isRepliable?.()) {
-      try { await interaction.reply({ content: '❌ Erro ao processar sua ação. Tente novamente.', ephemeral: true }); } catch {}
-    }
+    if (interaction?.isRepliable?.()) { try { await interaction.reply({ content: '❌ Erro ao processar sua ação. Tente novamente.', ephemeral: true }); } catch {} }
   }
 });
 

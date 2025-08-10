@@ -12,10 +12,7 @@ async function publicarCadastroPVE(client, channelId = null) {
     .setDescription('Clique no botão abaixo para enviar sua **Steam ID**. O botão é de **uso único por usuário**.');
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('pve_enviar_steam')
-      .setLabel('Enviar Steam ID')
-      .setStyle(ButtonStyle.Success)
+    new ButtonBuilder().setCustomId('pve_enviar_steam').setLabel('Enviar Steam ID').setStyle(ButtonStyle.Success)
   );
 
   await canal.send({ embeds: [embed], components: [row] });

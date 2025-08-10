@@ -1,11 +1,10 @@
 {
   "name": "blackbot",
-  "version": "1.4.0",
-  "description": "Blackbot (DayZ) — whitelist RP/PVE. Autoregisters slash commands on start.",
+  "version": "1.5.0",
+  "description": "Blackbot — auto-registra comandos após login (sem CLIENT_ID/GUILD_ID).",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "deploy": "node deploy-commands.js",
     "start": "node index.js"
   },
   "engines": {

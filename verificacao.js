@@ -10,20 +10,14 @@ async function enviarMensagemDeVerificacao(client, channelId = null) {
     .setColor(0x000000)
     .setTitle('Black • Verificação de Acesso')
     .setDescription([
-      'Escolha abaixo para continuar:',
-      '• **Black RP**: iniciar whitelist por DM, baseada na lore do servidor.',
-      '• **Black PVE**: cadastrar sua Steam ID e liberar acesso ao PVE.'
+       'Escolha abaixo para continuar:',
+       '• **Black RP**: iniciar whitelist por DM, baseada na lore do servidor.',
+       '• **Black PVE**: cadastrar sua Steam ID e liberar acesso ao PVE.'
     ].join('\n'));
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('verificar_rp')
-      .setLabel('🎭 Black RP')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('verificar_pve')
-      .setLabel('⚔️ Black PVE')
-      .setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('verificar_rp').setLabel('🎭 Black RP').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('verificar_pve').setLabel('⚔️ Black PVE').setStyle(ButtonStyle.Secondary)
   );
 
   await canal.send({ embeds: [embed], components: [row] });

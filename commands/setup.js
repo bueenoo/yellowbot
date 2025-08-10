@@ -1,8 +1,7 @@
 const { SlashCommandBuilder, ChannelType } = require('discord.js');
 const { enviarMensagemDeVerificacao } = require('../verificacao');
 const { publicarCadastroPVE } = require('../pve_message');
-
-const STAFF_ROLE_ID = '1401235779748892694';
+const { staffRoleId } = require('../config.json');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -29,7 +28,7 @@ module.exports = {
         .addChannelTypes(ChannelType.GuildText)
     ),
   async execute(interaction) {
-    if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+    if (!interaction.member.roles.cache.has(staffRoleId)) {
       return interaction.reply({
         content: '🚫 Apenas membros com o cargo @Staff podem usar este comando.',
         ephemeral: true,
