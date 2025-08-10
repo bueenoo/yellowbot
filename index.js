@@ -1,159 +1,247 @@
 
-requer ( 'dotenv' ). config ();
-const { Cliente , GatewayIntentBits } = require ( 'discord.js' );
-constante {
-  Cliente ,
-  GatewayIntentBits ,
-  Parciais ,
-  Construtor de linhas de ação ,
-  Construtor de botões ,
-  Estilo do botão ,
-  Construtor de incorporação
-} = requer ( 'discord.js' );
-const { canalWhitelistRespostas, cargoRP } = require ( './config.json' );
+require('dotenv').config();
+const {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  ComponentType,
+  PermissionsBitField,
+} = require('discord.js');
 
-const token = processo. env . token ;
+const { canalWhitelistRespostas, cargoRP } = require('./config.json');
 
-const cliente = novo cliente ({
- 
-  intenções : [
-    GatewayIntentBits . Guildas ,
-    GatewayIntentBits . Mensagens da Guilda ,
-    GatewayIntentBits Membros da Guilda
-  ]
-    GatewayIntentBits . Membros da Guilda ,
-    GatewayIntentBits . Mensagens Diretas ,
-    GatewayIntentBits . Conteúdo da Mensagem
+const token = process.env.TOKEN;
+
+// Cria o client com intents e partials para DM
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent,
   ],
-  parciais : [ Parciais . Canal ]
+  partials: [Partials.Channel], // necessário para DM
 });
 
-cliente. uma vez ( 'pronto' , () => {
+client.once('ready', () => {
   console.log(`✅ Bot iniciado como ${client.user.tag}`);
 });
 
-cliente. em ( 'interactionCreate' , interação assíncrona => {
-  se (!interação.isButton ( )) retornar ;
+/**
+ * Helper para perguntar no DM e aguardar 1 mensagem do usuário.
+ * timeMs padrão: 5 min.
+ */
+async function ask(dm, userId, text, timeMs = 5 * 60 * 1000) {
+  await dm.send(text);
+  const collected = await dm.awaitMessages({
+    filter: (m) => m.author.id === userId,
+    max: 1,
+    time: timeMs,
+  });
+  if (!collected.size) throw new Error('Tempo esgotado');
+  return collected.first().content?.trim() || '';
+}
 
-  se (interação. customId === 'verificar_rp' ) {
-    const user = interação. usuário ;
+client.on('interactionCreate', async (interaction) => {
+  try {
+    // Botões gerais
+    if (!interaction.isButton()) return;
 
-    tentar {
-      aguardar interação. responder ({
-        content: '📄 Vá até o canal <#1401950755031748628> e siga as instruções para preencher sua whitelist com base na história do servidor.',
-        efêmero : verdadeiro
-      aguardar interação. responder ({ content : '📬 Iniciamos sua lista de permissões no DM.' , ephemeral : true });
-      const dm = await usuário.createDM ()
- ;
-      const filter = m => m. author . id === user. id ;
- 
+    // Inicia fluxo RP (verificar_rp)
+    if (interaction.customId === 'verificar_rp') {
+      const user = interaction.user;
 
-      constperguntar = async texto => {
- 
-        aguardar dm. enviar (texto);
-        const coletada = await dm. awaitMessages ({ filter, max : 1 , time : 300000 });
-        if (!coletada.size) thrownewError('Tempo esgotado');
-  
-        retornar coletada. primeiro (). conteúdo ;
-      };
-
-      const nome = awaitperguntar('Qual é o seu nome?');
- 
-      const idade = awaitperguntar('Qual sua idade?');
- 
-      const steam = awaitperguntar('Qual sua Steam ID?');
- 
-
-      const expRow = novo ActionRowBuilder (). addComponents (
- 
-        novo ButtonBuilder (). setCustomId ( 'exp_sim' ). setLabel ( 'Sim' ). setStyle ( ButtonStyle . Success ),
- 
-        newButtonBuilder().setCustomId('exp_nao').setLabel('Não').setStyle(ButtonStyle.Danger)
- 
-      );
-      await dm.send({ content: 'Você tem experiência com RP?', components: [expRow] });
-      const expInteraction = aguarde dm.awaitMessageComponent ( {
-        filtro : i => i. usuário . id === usuário. id ,
-        tempo : 300000
+      // Resposta efêmera imediata
+      await interaction.reply({
+        content:
+          '📬 Iniciamos sua whitelist no DM. Se o DM não chegar, verifique suas configurações de privacidade.',
+        ephemeral: true,
       });
-      const experiencia = expInteraction.customId === 'exp_sim' ? 'Sim' : 'Não';
-      await expInteraction.update({ content: `Experiência com RP: ${experiencia}`, components: [] });
 
-      deixe a história;
-      enquanto ( verdadeiro ) {
-        historia = awaitperguntar('Você pode escrever até 200 caracteres. Envie agora a história do seu personagem.');
- 
-        se (historia. comprimento <= 200 ) quebrar ;
-        await dm.send('⚠️ A história deve ter no máximo 200 caracteres. Tente novamente.');
+      // Abre DM
+      const dm = await user.createDM();
+
+      // Perguntas
+      const nome = await ask(dm, user.id, 'Qual é o seu **nome**?');
+      const idade = await ask(dm, user.id, 'Qual sua **idade**?');
+      const steam = await ask(dm, user.id, 'Qual sua **Steam ID**?');
+
+      // Pergunta de experiência com botões
+      const expRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('exp_sim')
+          .setLabel('Sim')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('exp_nao')
+          .setLabel('Não')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await dm.send({
+        content: 'Você tem **experiência com RP**?',
+        components: [expRow],
+      });
+
+      const expInteraction = await dm.awaitMessageComponent({
+        componentType: ComponentType.Button,
+        filter: (i) => i.user.id === user.id,
+        time: 5 * 60 * 1000,
+      });
+
+      const experiencia = expInteraction.customId === 'exp_sim' ? 'Sim' : 'Não';
+      await expInteraction.update({
+        content: `Experiência com RP: **${experiencia}**`,
+        components: [],
+      });
+
+      // História até 200 chars
+      let historia = '';
+      while (true) {
+        historia = await ask(
+          dm,
+          user.id,
+          'Você pode escrever **até 200 caracteres**. Envie agora a **história do seu personagem**.'
+        );
+        if (historia.length <= 200) break;
+        await dm.send(
+          '⚠️ A história deve ter **no máximo 200 caracteres**. Tente novamente.'
+        );
       }
 
-      const embed = novo EmbedBuilder ()
- 
-        . setColor ( '#000000' )
-        . setTitle ( '📥 Nova lista de permissões' )
-        . adicionar campos (
+      // Monta embed para staff
+      const embed = new EmbedBuilder()
+        .setColor('#000000')
+        .setTitle('📥 Nova Whitelist (RP)')
+        .addFields(
           { name: 'Usuário', value: `<@${user.id}>`, inline: false },
-          { nome : 'Nome' , valor : nome, inline : true },
-          { name: 'Idade', value: idade, inline: true },
-          { nome : 'ID do Steam' , valor : steam, inline : false },
+          { name: 'Nome', value: nome || '—', inline: true },
+          { name: 'Idade', value: idade || '—', inline: true },
+          { name: 'Steam ID', value: steam || '—', inline: false },
           { name: 'Experiência com RP', value: experiencia, inline: true },
-          { name: 'História', value: historia, inline: false }
-        );
+          { name: 'História', value: historia || '—', inline: false }
+        )
+        .setTimestamp();
 
-      const linha = novo ActionRowBuilder (). addComponents (
- 
-        novo ButtonBuilder (). setCustomId ( `wl_aprovar_ ${user.id} ` ). setLabel ( '✅ Aprovar' ). setStyle ( ButtonStyle . Success ),
- 
-        novo ButtonBuilder (). setCustomId ( ` wl_reprovar_ ${user.id} ` ). setLabel ( '❌ Reprovar' ) . setStyle ( ButtonStyle.Danger )
- 
+      // Linha de botões para staff
+      const staffRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`wl_aprovar_${user.id}`)
+          .setLabel('✅ Aprovar')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`wl_reprovar_${user.id}`)
+          .setLabel('❌ Reprovar')
+          .setStyle(ButtonStyle.Danger)
       );
 
-      const staffChannel = await client. channels . fetch (canalWhitelistRespostas);
-      aguardar staffChannel. enviar ({ incorpora : [incorporar], componentes : [linha] });
+      // Envia ao canal da staff
+      const staffChannel = await client.channels.fetch(canalWhitelistRespostas);
+      await staffChannel.send({ embeds: [embed], components: [staffRow] });
 
-      await dm.send('✅ Suas respostas foram enviadas para análise da staff.');
-    } pegar (errar) {
-      console.error('Erro ao processar RP:', err);
-      console.error('Erro ao processar whitelist:', err);
-      tentar {
-        await user.send('❌ Ocorreu um erro ao processar sua whitelist.');
-      } pegar {}
+      await dm.send(
+        '✅ Suas respostas foram enviadas para análise da staff. Aguarde o resultado.'
+      );
+      return;
     }
-  }
 
-  se (interação. customId . começaCom ( 'wl_aprovar_' )) {
-    const userId = interação. customId . split ( 'wl_aprovar_' )[ 1 ];
-    const membro = aguardar interação. guilda . membros . buscar (userId). catch ( () => null );
- 
-    se (membro) {
-      aguardar membro. funções . adicionar (cargoRP). pegar ( console . erro );
-      await membro.send('✅ Sua whitelist foi aprovada!').catch(() =>null);
- 
-    }
-    await interaction.reply({ content: 'Usuário aprovado.', ephemeral: true });
-  }
+    // Botão de Aprovar
+    if (interaction.customId.startsWith('wl_aprovar_')) {
+      const userId = interaction.customId.split('wl_aprovar_')[1];
 
-  se (interação. customId . começaCom ( 'wl_reprovar_' )) {
-    const userId = interação. customId . split ( 'wl_reprovar_' )[ 1 ];
-    const membro = aguardar interação. guilda . membros . buscar (userId). catch ( () => null );
- 
-    se (membro) {
-      await membro.send('❌ Sua whitelist foi reprovada.').catch(() =>null);
- 
-    }
-    await interaction.reply({ content: 'Usuário reprovado.', ephemeral: true });
-  }
+      // Verificações de permissões
+      if (
+        !interaction.member.permissions.has(
+          PermissionsBitField.Flags.ManageRoles
+        )
+      ) {
+        await interaction.reply({
+          content: '🚫 Você não tem permissão para aprovar.',
+          ephemeral: true,
+        });
+        return;
+      }
 
-  se (interação. customId === 'verificar_pve' ) {
-    tentar {
-      aguardar interação. responder ({
-        content: '⚔️ Vá até o canal <#1401951160629461002> e envie sua Steam ID para cadastro.',
-        efêmero : verdadeiro
+      const member = await interaction.guild.members
+        .fetch(userId)
+        .catch(() => null);
+
+      if (member) {
+        // Atribui cargo RP
+        await member.roles.add(cargoRP).catch(console.error);
+        await member
+          .send('✅ Sua whitelist foi **aprovada**! Bem-vindo ao RP.')
+          .catch(() => null);
+      }
+
+      await interaction.reply({
+        content: 'Usuário aprovado.',
+        ephemeral: true,
       });
-    } pegar (errar) {
-      console.error('Erro ao processar PVE:', err);
+      return;
+    }
+
+    // Botão de Reprovar
+    if (interaction.customId.startsWith('wl_reprovar_')) {
+      const userId = interaction.customId.split('wl_reprovar_')[1];
+
+      // Verificações de permissões
+      if (
+        !interaction.member.permissions.has(
+          PermissionsBitField.Flags.ManageRoles
+        )
+      ) {
+        await interaction.reply({
+          content: '🚫 Você não tem permissão para reprovar.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const member = await interaction.guild.members
+        .fetch(userId)
+        .catch(() => null);
+
+      if (member) {
+        await member
+          .send('❌ Sua whitelist foi **reprovada**. Obrigado por participar!')
+          .catch(() => null);
+      }
+
+      await interaction.reply({
+        content: 'Usuário reprovado.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Fluxo PVE (apenas linka instrução)
+    if (interaction.customId === 'verificar_pve') {
+      await interaction.reply({
+        content:
+          '⚔️ Vá até o canal <#1401951160629461002> e envie sua **Steam ID** para cadastro.',
+        ephemeral: true,
+      });
+      return;
+    }
+  } catch (err) {
+    console.error('Erro no interactionCreate:', err);
+    // Tenta avisar o usuário se for uma interação de botão
+    if (interaction?.isRepliable?.()) {
+      try {
+        await interaction.reply({
+          content:
+            '❌ Ocorreu um erro ao processar sua solicitação. Tente novamente.',
+          ephemeral: true,
+        });
+      } catch {}
     }
   }
 });
 
-cliente. login (token);
+client.login(token);
