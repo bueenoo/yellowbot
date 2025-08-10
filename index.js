@@ -15,6 +15,7 @@ const {
   REST,
   Routes,
   ChannelType,
+  AttachmentBuilder,
 } = require('discord.js');
 
 const {
@@ -25,6 +26,7 @@ const {
   cargoRP,
   cargoPVE,
   staffRoleId,
+  canalArquivosTickets,
 } = require('./config.json');
 
 const fs = require('fs');
@@ -46,15 +48,13 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-// Load commands
+// Carrega comandos
 const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(f => f.endsWith('.js'));
 const commandMap = new Map();
 const commandData = [];
 for (const file of commandFiles) {
   const mod = require(path.join(__dirname, 'commands', file));
-  if (mod?.data?.name && typeof mod.execute === 'function') {
-    commandMap.set(mod.data.name, mod);
-  }
+  if (mod?.data?.name && typeof mod.execute === 'function') commandMap.set(mod.data.name, mod);
   if (mod?.data?.toJSON) commandData.push(mod.data.toJSON());
 }
 
@@ -62,17 +62,17 @@ client.once('ready', async () => {
   console.log(`✅ Bot iniciado como ${client.user.tag}`);
   try {
     const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-    const guilds = client.guilds.cache.map(g => g.id);
-    for (const gid of guilds) {
-      console.log(`⏳ Registrando ${commandData.length} comando(s) na guild ${gid}...`);
-      await rest.put(Routes.applicationGuildCommands(client.application.id, gid), { body: commandData });
-      console.log(`✅ Comandos registrados em ${gid}`);
+    for (const g of client.guilds.cache.values()) {
+      console.log(`⏳ Registrando ${commandData.length} comando(s) na guild ${g.id}...`);
+      await rest.put(Routes.applicationGuildCommands(client.application.id, g.id), { body: commandData });
+      console.log(`✅ Comandos registrados em ${g.id}`);
     }
   } catch (e) {
     console.error('❌ Falha ao registrar comandos após login:', e);
   }
 });
 
+// Utils
 const pveRegistered = new Set();
 
 async function ask(dm, userId, text, timeMs = 5 * 60 * 1000) {
@@ -82,9 +82,72 @@ async function ask(dm, userId, text, timeMs = 5 * 60 * 1000) {
   return collected.first().content?.trim() || '';
 }
 
+async function coletarMensagensTexto(channel) {
+  let lastId = null;
+  const linhas = [];
+  while (true) {
+    const fetched = await channel.messages.fetch({ limit: 100, before: lastId ?? undefined });
+    if (fetched.size === 0) break;
+    const arr = Array.from(fetched.values());
+    arr.reverse();
+    for (const m of arr) {
+      const ts = new Date(m.createdTimestamp).toISOString().replace('T', ' ').split('.')[0];
+      let base = `[${ts}] ${m.author?.tag ?? m.author?.id ?? 'Desconhecido'}: ${m.content ?? ''}`.trim();
+      if (m.attachments.size > 0) {
+        const anexos = m.attachments.map(a => a.url).join(', ');
+        base += ` \\n[Anexos] ${anexos}`;
+      }
+      linhas.push(base);
+    }
+    lastId = arr[0]?.id;
+  }
+  return linhas.join('\\n');
+}
+
+async function gerarEEnviarTranscript(interaction, motivo = 'fechado') {
+  const ownerId = (interaction.channel.topic || '').replace('TICKET:', '');
+  let ownerUser = null;
+  try { if (ownerId) ownerUser = await interaction.client.users.fetch(ownerId); } catch {}
+  const texto = await coletarMensagensTexto(interaction.channel);
+  const header = [
+    `Servidor: ${interaction.guild?.name ?? interaction.guildId}`,
+    `Canal: #${interaction.channel?.name}`,
+    `Ticket de: ${ownerId ? `<@${ownerId}>` : 'desconhecido'}`,
+    `${motivo === 'apagado' ? 'Apagado' : 'Fechado'} por: <@${interaction.user.id}>`,
+    `Data: ${new Date().toISOString().replace('T', ' ').split('.')[0]}`,
+    ''.padEnd(40, '=')
+  ].join('\\n');
+  const corpo = `${header}\\n${texto}`;
+  const nomeArquivo = `transcript-${interaction.channel?.name}-${Date.now()}.txt`;
+  const anexo = new AttachmentBuilder(Buffer.from(corpo, 'utf8'), { name: nomeArquivo });
+
+  if (ownerUser) {
+    try {
+      await ownerUser.send({
+        content: motivo === 'apagado'
+          ? '🗑️ Seu ticket foi apagado. Segue uma cópia do histórico:'
+          : '🔒 Seu ticket foi fechado. Segue uma cópia do histórico:',
+        files: [anexo]
+      });
+    } catch {}
+  }
+
+  if (canalArquivosTickets) {
+    try {
+      const staffCh = await interaction.client.channels.fetch(canalArquivosTickets);
+      await staffCh.send({
+        content: `📎 Transcript do ticket ${interaction.channel} ${motivo} por <@${interaction.user.id}>.`,
+        files: [anexo]
+      });
+    } catch (e) {
+      console.error('Falha ao enviar transcript para staff:', e);
+    }
+  }
+}
+
 client.on('interactionCreate', async (interaction) => {
   try {
-    // Slash commands
+    // Slash
     if (interaction.isChatInputCommand()) {
       const cmd = commandMap.get(interaction.commandName);
       if (cmd) return cmd.execute(interaction);
@@ -95,9 +158,7 @@ client.on('interactionCreate', async (interaction) => {
 
     // ===== Tickets =====
     if (interaction.isButton() && interaction.customId.startsWith('ticket_open_')) {
-      const tipo = interaction.customId.replace('ticket_open_', ''); // doacoes | denuncia | suporte
-
-      // Evitar duplicado por usuário (no mesmo parent / categoria)
+      const tipo = interaction.customId.replace('ticket_open_', '');
       const parentId = interaction.channel.parentId;
       const existing = interaction.guild.channels.cache.find(c =>
         c.type === ChannelType.GuildText &&
@@ -167,7 +228,7 @@ client.on('interactionCreate', async (interaction) => {
           '',
           'Explique seu caso com o máximo de detalhes.',
           'A equipe @Staff responderá em breve.',
-        ].join('\n'));
+        ].join('\\n'));
 
       await channel.send({ content: `<@${interaction.user.id}> <@&${staffRoleId}>`, embeds: [embed], components: [closeRow] });
 
@@ -175,7 +236,6 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isButton() && (interaction.customId === 'ticket_close' || interaction.customId === 'ticket_delete')) {
-      // Permissão: autor do ticket ou Staff
       const isStaff = interaction.member.roles.cache.has(staffRoleId) || interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels);
       const isOwner = interaction.channel.topic === `TICKET:${interaction.user.id}`;
       if (!isStaff && !isOwner) {
@@ -183,89 +243,31 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       if (interaction.customId === 'ticket_close') {
-  // Permissão: autor do ticket ou Staff
-  const isStaff = interaction.member.roles.cache.has(staffRoleId) || interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels);
-  const isOwner = interaction.channel.topic === `TICKET:${interaction.user.id}`;
-  if (!isStaff && !isOwner) {
-    return interaction.reply({ content: '🚫 Você não pode fechar este ticket.', ephemeral: true });
-  }
+        await gerarEEnviarTranscript(interaction, 'fechado');
 
-  // Descobre dono do ticket a partir do topic
-  const ownerId = (interaction.channel.topic || '').replace('TICKET:', '');
-  let ownerUser = null;
-  try { if (ownerId) ownerUser = await interaction.client.users.fetch(ownerId); } catch {}
-
-  // Coleta histórico do canal (paginado)
-  async function coletarMensagensTexto(channel) {
-    let lastId = null;
-    const linhas = [];
-    while (true) {
-      const fetched = await channel.messages.fetch({ limit: 100, before: lastId ?? undefined });
-      if (fetched.size === 0) break;
-      const arr = Array.from(fetched.values());
-      arr.reverse(); // mais antigo -> mais novo
-      for (const m of arr) {
-        const ts = new Date(m.createdTimestamp).toISOString().replace('T', ' ').split('.')[0];
-        let base = `[${ts}] ${m.author?.tag ?? m.author?.id ?? 'Desconhecido'}: ${m.content ?? ''}`.trim();
-        if (m.attachments.size > 0) {
-          const anexos = m.attachments.map(a => a.url).join(', ');
-          base += ` 
-[Anexos] ${anexos}`;
+        // Renomeia para closed-...
+        if (!interaction.channel.name.startsWith('closed-')) {
+          const novoNome = (`closed-${interaction.channel.name}`).slice(0, 100);
+          try { await interaction.channel.setName(novoNome); } catch {}
         }
-        linhas.push(base);
+
+        // Remove permissão de enviar do autor
+        const ownerId = (interaction.channel.topic || '').replace('TICKET:', '');
+        if (ownerId) {
+          try { await interaction.channel.permissionOverwrites.edit(ownerId, { SendMessages: false }); } catch {}
+        }
+
+        await interaction.reply({ content: '🔒 Ticket fechado. Transcript enviado por DM e para a staff.', ephemeral: true });
+        return;
       }
-      lastId = arr[0]?.id;
-    }
-    return linhas.join('
-');
-  }
-
-  let texto = await coletarMensagensTexto(interaction.channel);
-  const header = [
-    `Servidor: ${interaction.guild?.name ?? interaction.guildId}`,
-    `Canal: #${interaction.channel?.name}`,
-    `Ticket de: ${ownerId ? `<@${ownerId}>` : 'desconhecido'}`,
-    `Fechado por: <@${interaction.user.id}>`,
-    `Data de fechamento: ${new Date().toISOString().replace('T', ' ').split('.')[0]}`,
-    ''.padEnd(40, '='),
-  ].join('
-');
-
-  const corpo = `${header}
-${texto}`;
-  const { AttachmentBuilder } = require('discord.js');
-  const nomeArquivo = `transcript-${interaction.channel?.name}-${Date.now()}.txt`;
-  const anexo = new AttachmentBuilder(Buffer.from(corpo, 'utf8'), { name: nomeArquivo });
-
-  // DM para o dono do ticket (se possível)
-  if (ownerUser) {
-    try {
-      await ownerUser.send({ content: '🔒 Seu ticket foi fechado. Segue uma cópia do histórico:', files: [anexo] });
-    } catch {}
-  }
-
-  // Envia no canal de arquivos para a staff
-  try {
-    const { canalArquivosTickets } = require('./config.json');
-    if (canalArquivosTickets) {
-      const staffCh = await interaction.client.channels.fetch(canalArquivosTickets);
-      await staffCh.send({ content: `📎 Transcript do ticket ${interaction.channel} fechado por <@${interaction.user.id}>.`, files: [anexo] });
-    }
-  } catch (e) { console.error('Falha ao enviar transcript para staff:', e); }
-
-  // Fechar: remove permissão de enviar do autor
-  if (ownerId) {
-    try { await interaction.channel.permissionOverwrites.edit(ownerId, { SendMessages: false }); } catch {}
-  }
-  await interaction.reply({ content: '🔒 Ticket fechado. Transcript enviado por DM e para a staff.', ephemeral: true });
-  return;
-}
 
       if (interaction.customId === 'ticket_delete') {
         if (!isStaff) {
           return interaction.reply({ content: '🚫 Apenas Staff pode apagar o ticket.', ephemeral: true });
         }
-        await interaction.reply({ content: '🗑️ Ticket será apagado em 3 segundos...', ephemeral: true });
+
+        await gerarEEnviarTranscript(interaction, 'apagado');
+        await interaction.reply({ content: '🗑️ Transcript enviado. Ticket será apagado em 3 segundos...', ephemeral: true });
         setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
         return;
       }
@@ -294,7 +296,7 @@ ${texto}`;
       pveRegistered.add(user.id);
       try {
         const logCh = await interaction.client.channels.fetch(canalRegistroPVE);
-        await logCh.send({ content: `📝 **Registro PVE**\n**Discord:** <@${user.id}> (${user.tag})\n**Steam ID:** ${steamId}\n**Data:** <t:${Math.floor(Date.now()/1000)}:F>` });
+        await logCh.send({ content: `📝 **Registro PVE**\\n**Discord:** <@${user.id}> (${user.tag})\\n**Steam ID:** ${steamId}\\n**Data:** <t:${Math.floor(Date.now()/1000)}:F>` });
       } catch (e) { console.error('Falha ao logar registro PVE:', e); }
       try {
         const member = await interaction.guild.members.fetch(user.id).catch(() => null);
@@ -377,9 +379,9 @@ ${texto}`;
       const userId = interaction.customId.split('wl_motivo_')[1];
       const motivo = interaction.fields.getTextInputValue('motivo');
       const member = await interaction.guild.members.fetch(userId).catch(() => null);
-      if (member) await member.send(`❌ Sua whitelist foi **reprovada**.\nMotivo: ${motivo}`).catch(() => null);
+      if (member) await member.send(`❌ Sua whitelist foi **reprovada**.\\nMotivo: ${motivo}`).catch(() => null);
       if (canalReprovados) {
-        try { const ch = await interaction.client.channels.fetch(canalReprovados); await ch.send({ content: `Usuário <@${userId}> reprovado.\nMotivo: ${motivo}` }); } catch {}
+        try { const ch = await interaction.client.channels.fetch(canalReprovados); await ch.send({ content: `Usuário <@${userId}> reprovado.\\nMotivo: ${motivo}` }); } catch {}
       }
       await interaction.reply({ content: 'Reprovação registrada.', ephemeral: true });
       return;
