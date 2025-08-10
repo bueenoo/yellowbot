@@ -1,38 +1,31 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { allowedInfoChannel } = require('../config.json');
+
+const PVE_HOST = '189.127.165.165';
+const PVE_PORT = '2382';
+const RP_STATUS = 'Offline — em construção';
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('info')
-    .setDescription('Mostra as informações principais do servidor Black'),
-
+    .setDescription('Mostra IPs dos servidores e status.'),
   async execute(interaction) {
-    if (interaction.channelId !== '1402172138395271239') {
-      return interaction.reply({ content: '❗ Este comando só pode ser usado no canal oficial de informações.', ephemeral: true });
+    if (interaction.channelId !== allowedInfoChannel) {
+      return interaction.reply({
+        content: `Use este comando no canal <#${allowedInfoChannel}>.`,
+        ephemeral: true,
+      });
     }
 
-    const onlineCount = interaction.guild.members.cache.filter(m => m.presence && m.presence.status !== 'offline').size;
-
     const embed = new EmbedBuilder()
-      .setColor('#000000')
-      .setTitle('🖤 Bem-vindo ao servidor Black!')
-      .setDescription(`🌍 **Modos disponíveis:**
-・🎭 RP com whitelist obrigatória  
-・⚔️ PVE liberado com verificação Steam
+      .setColor(0x000000)
+      .setTitle('Black • Status dos Servidores')
+      .addFields(
+        { name: 'RP', value: RP_STATUS, inline: false },
+        { name: 'PVE', value: `**IP:** ${PVE_HOST}\n**Porta:** ${PVE_PORT}`, inline: false },
+      )
+      .setTimestamp(new Date());
 
-📡 **Endereços dos servidores:**
-・RP: \`192.168.0.10:2302\`
-・PVE: \`192.168.0.11:2302\`
-
-👥 **Jogadores online no Discord:** ${onlineCount}
-
-📩 **Suporte via tickets:**  
-💰 Doações | 🚨 Denúncia | ⚙️ Técnico
-
-🛒 **Loja automatizada:** VIPs, veículos e roupas (Pix)
-
-Entre, sobreviva e construa sua história em Chernarus.`)
-      .setFooter({ text: 'Servidor Black • DayZ RP e PVE' });
-
-    await interaction.reply({ embeds: [embed], ephemeral: true });
-  }
+    await interaction.reply({ embeds: [embed] });
+  },
 };

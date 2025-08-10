@@ -1,25 +1,33 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { canalMensagemVerificacao } = require('./config.json');
 
-function enviarMensagemDeVerificacao(canal) {
+async function enviarMensagemDeVerificacao(client, channelId = null) {
+  const alvo = channelId ?? canalMensagemVerificacao;
+  const canal = await client.channels.fetch(alvo);
+  if (!canal) throw new Error('Canal de verificação não encontrado.');
+
   const embed = new EmbedBuilder()
-    .setColor('#000000')
-    .setTitle('👋 Bem-vindo ao Black!')
-    .setDescription(
-      'Nosso servidor é uma experiência única de sobrevivência.\n\n' +
-      'Clique em um dos botões abaixo para escolher seu modo de jogo e liberar o acesso:\n\n' +
-      '🕵️‍♂️ **Black RP:** Servidor com whitelist e história\n' +
-      '⚔️ **Black PVE:** Servidor PVE com cadastro via Steam\n\n' +
-      '📜 Seja respeitoso, leia as regras e divirta-se!\n\n' +
-      'Servidor Black • DayZ RP e PVE'
-    );
+    .setColor(0x000000)
+    .setTitle('Black • Verificação de Acesso')
+    .setDescription([
+      'Escolha abaixo para continuar:',
+      '• **Black RP**: iniciar whitelist por DM, baseada na lore do servidor.',
+      '• **Black PVE**: cadastrar sua Steam ID e liberar acesso ao PVE.'
+    ].join('\n'));
 
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder().setCustomId('verificar_rp').setLabel('🕵️‍♂️ Black RP').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('verificar_pve').setLabel('⚔️ Black PVE').setStyle(ButtonStyle.Secondary)
-    );
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('verificar_rp')
+      .setLabel('🎭 Black RP')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('verificar_pve')
+      .setLabel('⚔️ Black PVE')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
-  canal.send({ embeds: [embed], components: [row] });
+  await canal.send({ embeds: [embed], components: [row] });
+  console.log('✅ Mensagem de verificação publicada.');
 }
 
 module.exports = { enviarMensagemDeVerificacao };

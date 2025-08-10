@@ -1,29 +1,23 @@
-// deploy-commands.js
 require('dotenv').config();
 const { REST, Routes } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
-const TOKEN = process.env.TOKEN; // use maiúsculo
-const { clientId: CLIENT_ID, guildId: GUILD_ID } = require('./config.json');
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID;
 
 if (!TOKEN) throw new Error('TOKEN ausente (defina em .env ou no host).');
-if (!CLIENT_ID) throw new Error('clientId ausente em config.json.');
-if (!GUILD_ID) throw new Error('guildId ausente em config.json.');
+if (!CLIENT_ID) throw new Error('CLIENT_ID ausente (defina em .env ou no host).');
+if (!GUILD_ID) throw new Error('GUILD_ID ausente (defina em .env ou no host).');
 
 const commands = [];
 const commandsDir = path.join(__dirname, 'commands');
-if (!fs.existsSync(commandsDir)) {
-  console.warn('⚠️ Pasta ./commands não existe. Registrando lista vazia.');
-} else {
-  const commandFiles = fs.readdirSync(commandsDir).filter(f => f.endsWith('.js'));
-  for (const file of commandFiles) {
+if (fs.existsSync(commandsDir)) {
+  const files = fs.readdirSync(commandsDir).filter(f => f.endsWith('.js'));
+  for (const file of files) {
     const cmd = require(path.join(commandsDir, file));
-    if (!cmd?.data?.toJSON) {
-      console.warn(`⚠️ ${file} não exporta data.toJSON(). Pulando.`);
-      continue;
-    }
-    commands.push(cmd.data.toJSON());
+    if (cmd?.data?.toJSON) commands.push(cmd.data.toJSON());
   }
 }
 
@@ -38,7 +32,6 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
     );
     console.log('✅ Comandos registrados com sucesso!');
   } catch (err) {
-    // Logs úteis pra debug de 401/403
     console.error('❌ Falha ao registrar comandos.');
     console.error('status:', err?.status);
     console.error('code:', err?.code);
