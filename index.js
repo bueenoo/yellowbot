@@ -14,6 +14,7 @@ const {
   PermissionsBitField,
   REST,
   Routes,
+  ChannelType,
 } = require('discord.js');
 
 const {
@@ -23,6 +24,7 @@ const {
   canalRegistroPVE,
   cargoRP,
   cargoPVE,
+  staffRoleId,
 } = require('./config.json');
 
 const fs = require('fs');
@@ -44,7 +46,7 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-// Carrega comandos para executar e para registrar
+// Load commands
 const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(f => f.endsWith('.js'));
 const commandMap = new Map();
 const commandData = [];
@@ -58,8 +60,6 @@ for (const file of commandFiles) {
 
 client.once('ready', async () => {
   console.log(`✅ Bot iniciado como ${client.user.tag}`);
-
-  // Auto-registra para todas as guilds em que o bot está
   try {
     const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
     const guilds = client.guilds.cache.map(g => g.id);
@@ -73,7 +73,6 @@ client.once('ready', async () => {
   }
 });
 
-// Cache simples para impedir múltiplos cadastros PVE por usuário durante o uptime
 const pveRegistered = new Set();
 
 async function ask(dm, userId, text, timeMs = 5 * 60 * 1000) {
@@ -85,6 +84,7 @@ async function ask(dm, userId, text, timeMs = 5 * 60 * 1000) {
 
 client.on('interactionCreate', async (interaction) => {
   try {
+    // Slash commands
     if (interaction.isChatInputCommand()) {
       const cmd = commandMap.get(interaction.commandName);
       if (cmd) return cmd.execute(interaction);
@@ -93,6 +93,116 @@ client.on('interactionCreate', async (interaction) => {
 
     if (!interaction.isButton() && !interaction.isModalSubmit()) return;
 
+    // ===== Tickets =====
+    if (interaction.isButton() && interaction.customId.startsWith('ticket_open_')) {
+      const tipo = interaction.customId.replace('ticket_open_', ''); // doacoes | denuncia | suporte
+
+      // Evitar duplicado por usuário (no mesmo parent / categoria)
+      const parentId = interaction.channel.parentId;
+      const existing = interaction.guild.channels.cache.find(c =>
+        c.type === ChannelType.GuildText &&
+        c.parentId === parentId &&
+        c.topic === `TICKET:${interaction.user.id}`
+      );
+      if (existing) {
+        return interaction.reply({ content: `📌 Você já tem um ticket aberto: <#${existing.id}>`, ephemeral: true });
+      }
+
+      const safeName = interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'user';
+      const channelName = `ticket-${tipo}-${safeName}`;
+
+      const permissionOverwrites = [
+        { id: interaction.guild.roles.everyone, deny: [PermissionsBitField.Flags.ViewChannel] },
+        { id: interaction.user.id, allow: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.SendMessages,
+          PermissionsBitField.Flags.ReadMessageHistory,
+          PermissionsBitField.Flags.AttachFiles,
+        ] },
+      ];
+
+      if (staffRoleId) {
+        permissionOverwrites.push({
+          id: staffRoleId,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory,
+            PermissionsBitField.Flags.AttachFiles,
+            PermissionsBitField.Flags.ManageMessages,
+          ],
+        });
+      }
+
+      permissionOverwrites.push({
+        id: interaction.guild.members.me.roles.highest,
+        allow: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.SendMessages,
+          PermissionsBitField.Flags.ReadMessageHistory,
+          PermissionsBitField.Flags.AttachFiles,
+          PermissionsBitField.Flags.ManageChannels,
+        ],
+      });
+
+      const channel = await interaction.guild.channels.create({
+        name: channelName,
+        type: ChannelType.GuildText,
+        parent: parentId ?? undefined,
+        topic: `TICKET:${interaction.user.id}`,
+        permissionOverwrites,
+      });
+
+      const closeRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_close').setLabel('🔒 Fechar').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('ticket_delete').setLabel('🗑️ Apagar').setStyle(ButtonStyle.Danger)
+      );
+
+      const embed = new EmbedBuilder()
+        .setColor(0x000000)
+        .setTitle('🎫 Ticket aberto')
+        .setDescription([
+          `Tipo: **${tipo}**`,
+          `Aberto por: <@${interaction.user.id}>`,
+          '',
+          'Explique seu caso com o máximo de detalhes.',
+          'A equipe @Staff responderá em breve.',
+        ].join('\n'));
+
+      await channel.send({ content: `<@${interaction.user.id}> <@&${staffRoleId}>`, embeds: [embed], components: [closeRow] });
+
+      return interaction.reply({ content: `✅ Ticket criado: ${channel}`, ephemeral: true });
+    }
+
+    if (interaction.isButton() && (interaction.customId === 'ticket_close' || interaction.customId === 'ticket_delete')) {
+      // Permissão: autor do ticket ou Staff
+      const isStaff = interaction.member.roles.cache.has(staffRoleId) || interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels);
+      const isOwner = interaction.channel.topic === `TICKET:${interaction.user.id}`;
+      if (!isStaff && !isOwner) {
+        return interaction.reply({ content: '🚫 Você não pode executar esta ação neste ticket.', ephemeral: true });
+      }
+
+      if (interaction.customId === 'ticket_close') {
+        // Remove permissão de enviar mensagens do autor
+        const ownerId = (interaction.channel.topic || '').replace('TICKET:', '');
+        if (ownerId) {
+          await interaction.channel.permissionOverwrites.edit(ownerId, { SendMessages: false }).catch(() => {});
+        }
+        await interaction.reply({ content: '🔒 Ticket fechado. Um membro da staff pode apagar quando finalizar.', ephemeral: true });
+        return;
+      }
+
+      if (interaction.customId === 'ticket_delete') {
+        if (!isStaff) {
+          return interaction.reply({ content: '🚫 Apenas Staff pode apagar o ticket.', ephemeral: true });
+        }
+        await interaction.reply({ content: '🗑️ Ticket será apagado em 3 segundos...', ephemeral: true });
+        setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
+        return;
+      }
+    }
+
+    // ===== PVE =====
     if (interaction.isButton() && interaction.customId === 'verificar_pve') {
       return interaction.reply({ content: `⚔️ Vá até o canal <#${canalPVEForm}> e clique no botão **Enviar Steam ID** para cadastrar.`, ephemeral: true });
     }
@@ -125,6 +235,7 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
+    // ===== RP =====
     if (interaction.isButton() && interaction.customId === 'verificar_rp') {
       const user = interaction.user;
       await interaction.reply({ content: '📬 Iniciamos sua whitelist no DM. Se o DM não chegar, verifique suas configurações de privacidade.', ephemeral: true });

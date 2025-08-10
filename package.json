@@ -1,7 +1,7 @@
 {
   "name": "blackbot",
-  "version": "1.5.0",
-  "description": "Blackbot — auto-registra comandos após login (sem CLIENT_ID/GUILD_ID).",
+  "version": "1.6.0",
+  "description": "Blackbot — whitelist RP/PVE + tickets. Auto-registra comandos após login.",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
