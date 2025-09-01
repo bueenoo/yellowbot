@@ -1,4 +1,3 @@
-// utils/verificacao.js
 const {
   EmbedBuilder,
   ActionRowBuilder,
@@ -29,7 +28,6 @@ async function enviarMensagemDeVerificacao(canal) {
   );
 
   const msg = await canal.send({ embeds: [embed], components: [row] });
-  // tenta fixar; se não tiver permissão, só ignora
   try { await msg.pin(); } catch (_) {}
 }
 
