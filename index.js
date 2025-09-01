@@ -55,8 +55,9 @@ client.on('shardReady', (id, unavailable) => console.log(`[shardReady#${id}] una
 
 const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
 
-client.once('ready', async () => {
-  console.log(`✅ READY como ${client.user.tag} (id ${client.user.id})`);
+client.once('clientReady', async () => {
+  console.log(`✅ READY como ${client.user.tag}`);
+
   try {
     await client.user.setPresence({ activities: [{ name: 'Black • verificação' }], status: 'online' });
     console.log('🟢 Presença definida.');
