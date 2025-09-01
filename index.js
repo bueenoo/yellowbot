@@ -57,6 +57,7 @@ const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
 
 client.once('clientReady', async () => {
   console.log(`✅ READY como ${client.user.tag}`);
+});
 
   try {
     await client.user.setPresence({ activities: [{ name: 'Black • verificação' }], status: 'online' });
