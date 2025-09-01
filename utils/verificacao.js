@@ -1,31 +1,13 @@
 const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
 } = require('discord.js');
 
 async function enviarMensagemDeVerificacao(canal) {
   if (!canal) return;
-
-  try {
-    const everyone = canal.guild.roles.everyone;
-    const current = canal.permissionOverwrites.cache.get(everyone.id);
-    if (!current) {
-      await canal.permissionOverwrites.edit(everyone, {
-        SendMessages: false,
-        AddReactions: false,
-      }).catch(() => {});
-    }
-  } catch (_) {}
-
   const embed = new EmbedBuilder()
     .setColor('#000000')
     .setTitle('🌐 Selecione seu idioma • Selecciona tu idioma')
-    .setDescription([
-      'Escolha abaixo para continuar a verificação no seu idioma.',
-      'Elige abajo para continuar la verificación en tu idioma.',
-    ].join('\n'));
+    .setDescription('Escolha abaixo para continuar a verificação no seu idioma.\nElige abajo para continuar la verificación en tu idioma.');
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('lang_pt').setLabel('🇧🇷 Português').setStyle(ButtonStyle.Primary),
@@ -34,19 +16,15 @@ async function enviarMensagemDeVerificacao(canal) {
 
   try {
     const fetched = await canal.messages.fetch({ limit: 20 }).catch(() => null);
-    const antiga = fetched?.find(m =>
-      m.pinned &&
-      m.author?.bot &&
-      m.embeds?.[0]?.title?.includes('Selecione seu idioma')
-    );
+    const antiga = fetched?.find(m => m.pinned && m.author?.bot && m.embeds?.[0]?.title?.includes('Selecione seu idioma'));
     if (antiga) {
-      await antiga.edit({ embeds: [embed], components: [row] }).catch(() => {});
+      await antiga.edit({ embeds: [embed], components: [row] });
       return;
     }
-  } catch (_) {}
+  } catch {}
 
   const msg = await canal.send({ embeds: [embed], components: [row] });
-  try { await msg.pin(); } catch (_) {}
+  try { await msg.pin(); } catch {}
 }
 
 module.exports = { enviarMensagemDeVerificacao };

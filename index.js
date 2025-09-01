@@ -1,134 +1,127 @@
 require('dotenv').config();
-
 const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  Client, GatewayIntentBits, Partials,
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle
 } = require('discord.js');
 
 const {
-  canalWhitelistRespostas,
-  cargoRP,
-  canalVerificacao,
-  rolePT,
-  roleES,
-  canalPT,
-  canalES,
+  canalVerificacao, rolePT, roleES,
+  canalPT, canalES, canalWhitelist, canalCadastroPVE
 } = require('./config.json');
+
+const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
+const { buildPT } = require('./utils/verificacao-pt');
+const { buildES } = require('./utils/verificacao-es');
 
 const token = process.env.token;
 if (!token) {
-  console.error('[ERRO] Variável de ambiente "token" não encontrada. Configure no Railway em Variables → token');
+  console.error('[ERRO] Defina a variável "token" no Railway → Variables');
   process.exit(1);
 }
-
-// ====== LOGS/DIAGNÓSTICOS ======
-console.log('[BOOT] Iniciando… Node:', process.version);
-process.on('unhandledRejection', (reason) => console.error('[unhandledRejection]', reason));
-process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,     // precisa do "Server Members Intent" ON no portal
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.MessageContent,   // precisa do "Message Content Intent" ON no portal
+    GatewayIntentBits.MessageContent
   ],
   partials: [Partials.Channel],
 });
 
-client.on('error', (e) => console.error('[client.error]', e));
-client.on('warn', (w) => console.warn('[client.warn]', w));
-
-// ================ EMBUTIDO: enviarMensagemDeVerificacao =================
-async function enviarMensagemDeVerificacao(canal) {
-  if (!canal) return;
-
-  // (opcional) deixar o canal só leitura para @everyone sem sobrescrever configs existentes
-  try {
-    const everyone = canal.guild.roles.everyone;
-    const current = canal.permissionOverwrites.cache.get(everyone.id);
-    if (!current) {
-      await canal.permissionOverwrites.edit(everyone, {
-        SendMessages: false,
-        AddReactions: false,
-      }).catch(() => {});
-    }
-  } catch (_) {}
-
-  const embed = new EmbedBuilder()
-    .setColor('#000000')
-    .setTitle('🌐 Selecione seu idioma • Selecciona tu idioma')
-    .setDescription([
-      'Escolha abaixo para continuar a verificação no seu idioma.',
-      'Elige abajo para continuar la verificación en tu idioma.',
-    ].join('\n'));
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('lang_pt').setLabel('🇧🇷 Português').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('lang_es').setLabel('🇪🇸 Español').setStyle(ButtonStyle.Secondary),
-  );
-
-  // evita duplicata: se já existe uma mensagem fixada do bot, atualiza
-  try {
-    const fetched = await canal.messages.fetch({ limit: 20 }).catch(() => null);
-    const antiga = fetched?.find(m =>
-      m.pinned &&
-      m.author?.bot &&
-      m.embeds?.[0]?.title?.includes('Selecione seu idioma')
-    );
-    if (antiga) {
-      await antiga.edit({ embeds: [embed], components: [row] }).catch(() => {});
-      return;
-    }
-  } catch (_) {}
-
-  const msg = await canal.send({ embeds: [embed], components: [row] });
-  try { await msg.pin(); } catch (_) {}
-}
-// ================== FIM EMBUTIDO ===================
-
-
 client.once('clientReady', async () => {
   console.log(`✅ Bot iniciado como ${client.user.tag} (id: ${client.user.id})`);
-
   try {
-    await client.user.setPresence({
-      activities: [{ name: 'Black • verificação' }],
-      status: 'online',
-    });
-    console.log('🟢 Presença definida.');
-  } catch (err) {
-    console.error('Erro ao definir presença:', err);
-  }
-
+    await client.user.setPresence({ activities: [{ name: 'Black • verificação' }], status: 'online' });
+  } catch {}
   try {
     const ch = await client.channels.fetch(canalVerificacao);
     await enviarMensagemDeVerificacao(ch);
-    console.log('📌 Mensagem de verificação enviada/fixada.');
-  } catch (err) {
-    console.error('Erro ao enviar mensagem de verificação:', err);
+    console.log('📌 Mensagem de idioma fixada.');
+  } catch (e) {
+    console.error('Falha ao enviar mensagem de idioma:', e);
   }
 });
 
-/* ============ (aqui entram seus outros handlers de interação) ============
-   Se você tem os fluxos de WL/PT/ES, RP/PVE, etc., mantenha-os abaixo,
-   exatamente como estavam — não precisam do utils/verificacao agora.
-   ======================================================================= */
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
 
-// ====== LOGIN ======
+  // Click idioma PT
+  if (interaction.customId === 'lang_pt') {
+    try {
+      const role = interaction.guild.roles.cache.get(rolePT);
+      if (role) await interaction.member.roles.add(role).catch(()=>{});
+
+      const { embed, row } = buildPT();
+      // edita a mensagem do embed de idioma para o fluxo em PT
+      await interaction.update({ embeds: [embed], components: [row] });
+    } catch (e) {
+      console.error('Erro lang_pt:', e);
+      if (!interaction.replied) {
+        await interaction.reply({ content: '❗ Não foi possível definir o idioma.', ephemeral: true });
+      }
+    }
+    return;
+  }
+
+  // Click idioma ES
+  if (interaction.customId === 'lang_es') {
+    try {
+      const role = interaction.guild.roles.cache.get(roleES);
+      if (role) await interaction.member.roles.add(role).catch(()=>{});
+
+      const { embed, row } = buildES();
+      await interaction.update({ embeds: [embed], components: [row] });
+    } catch (e) {
+      console.error('Erro lang_es:', e);
+      if (!interaction.replied) {
+        await interaction.reply({ content: '❗ No fue posible definir el idioma.', ephemeral: true });
+      }
+    }
+    return;
+  }
+
+  // Fluxo PT: RP / PVE
+  if (interaction.customId === 'ver_pt_rp') {
+    await interaction.reply({
+      content: `📄 Vá até <#${canalWhitelist}> e siga as instruções para preencher sua **whitelist** em PT.\nApós enviar, aguarde em <#1402205533272014858>.`,
+      ephemeral: true
+    });
+    return;
+  }
+  if (interaction.customId === 'ver_pt_pve') {
+    await interaction.reply({
+      content: `⚔️ Para PVE em PT: envie sua **Steam ID** em <#${canalCadastroPVE}>. Após validado, seu acesso será liberado.`,
+      ephemeral: true
+    });
+    return;
+  }
+
+  // Flujo ES: RP / PVE
+  if (interaction.customId === 'ver_es_rp') {
+    await interaction.reply({
+      content: `📄 Ve a <#${canalWhitelist}> y completa tu **whitelist** en ES.\nLuego espera en <#1402205533272014858>.`,
+      ephemeral: true
+    });
+    return;
+  }
+  if (interaction.customId === 'ver_es_pve') {
+    await interaction.reply({
+      content: `⚔️ Para PVE en ES: envía tu **Steam ID** en <#${canalCadastroPVE}>. Tras validación, tu acceso será liberado.`,
+      ephemeral: true
+    });
+    return;
+  }
+});
+
 (async () => {
   console.log('[LOGIN] Tentando logar...');
   try {
     await client.login(token);
     console.log('[LOGIN] Sucesso. Aguardando clientReady...');
   } catch (e) {
-    console.error('[LOGIN ERRO] Não foi possível logar:', e);
+    console.error('[LOGIN] Falha:', e);
     process.exit(1);
   }
 })();
