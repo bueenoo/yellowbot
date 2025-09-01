@@ -1,22 +1,22 @@
-# BlackBot — Sem TOKEN local (Railway-only)
+# Blackbot (PT/ES)
 
-Este projeto foi configurado para **não precisar de TOKEN localmente**.
-- Local: `npm run deploy` pula sem erro se não houver `TOKEN/CLIENT_ID/GUILD_ID`. `npm start` sai sem iniciar.
-- Railway/produção: defina `TOKEN`, `CLIENT_ID` e `GUILD_ID` nas Variáveis do projeto e o bot sobe normalmente.
+Bot de verificação com seleção de idioma (PT/ES), whitelist por DM (RP) e cadastro PVE (SteamID).
 
-## Passos (Railway)
-1. Configure as variáveis:
-   - `TOKEN` = Token do Bot (Developer Portal → Bot → Reset Token)
-   - `CLIENT_ID` = Application ID (General Information)
-   - `GUILD_ID` = ID do servidor Discord
-2. Deploy:
-   - Build Command: `npm install && npm run deploy`
-   - Start Command: `npm start`
+- Mensagem fixa no canal de verificação com botões de idioma.
+- Ao escolher idioma, o usuário recebe automaticamente o cargo @PT ou @ES e vê as opções RP / PVE em **mensagem efêmera**.
+- RP: perguntas por DM (nome, idade, Discord ID, Steam ID, experiência com RP [sim/não] e história até 600 caracteres). Envio para canal interno com botões **Aprovar** / **Reprovar** (com motivo via modal) e logs em canais de reprovados (PT/ES).
+- PVE: instruções efêmeras para enviar SteamID no canal configurado (validação básica de ID/URL).
 
-## Comandos
-- `/setup` (apenas @Staff — ID: 1401235779748892694): publica verificação e cadastro PVE.
-- `/info` (restrito ao canal configurado): mostra RP **Offline** e PVE **189.127.165.165:2382**.
+## Configuração
+Crie variáveis no Railway (ou arquivo `.env` local):
+```
+token=SEU_TOKEN
+```
 
-## Ajustes
-- Edite `config.json` e preencha `cargoRP` e `cargoPVE` com IDs reais.
-- Garanta que o cargo do bot esteja **acima** desses cargos na hierarquia.
+Edite `config.json` com seus IDs (servidor, canais, cargos).
+
+## Executar
+```
+npm i
+npm start
+```
