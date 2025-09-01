@@ -1,4 +1,4 @@
-const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
+const { enviarMensagemDeVerificacao } = require("./verificacao");
 
 require('dotenv').config();
 
