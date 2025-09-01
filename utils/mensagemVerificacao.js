@@ -1,26 +1,36 @@
+// utils/verificacao.js
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require('discord.js');
 
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-
-function enviarMensagemDeVerificacao(canal) {
+async function enviarMensagemDeVerificacao(canal) {
   const embed = new EmbedBuilder()
     .setColor('#000000')
-    .setTitle('👋 Bem-vindo ao Black!')
+    .setTitle('🌐 Selecione seu idioma • Selecciona tu idioma')
     .setDescription(
-      'Nosso servidor é uma experiência única de sobrevivência.\n\n' +
-      'Clique em um dos botões abaixo para escolher seu modo de jogo e liberar o acesso:\n\n' +
-      '🕵️‍♂️ **Black RP:** Servidor com whitelist e história\n' +
-      '⚔️ **Black PVE:** Servidor PVE com cadastro via Steam\n\n' +
-      '📜 Seja respeitoso, leia as regras e divirta-se!\n\n' +
-      'Servidor Black • DayZ RP e PVE'
+      [
+        'Escolha abaixo para continuar a verificação no seu idioma.',
+        'Elige abajo para continuar la verificación en tu idioma.',
+      ].join('\n')
     );
 
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder().setCustomId('verificar_rp').setLabel('🕵️‍♂️ Black RP').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('verificar_pve').setLabel('⚔️ Black PVE').setStyle(ButtonStyle.Secondary)
-    );
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('lang_pt')
+      .setLabel('🇧🇷 Português')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('lang_es')
+      .setLabel('🇪🇸 Español')
+      .setStyle(ButtonStyle.Secondary)
+  );
 
-  canal.send({ embeds: [embed], components: [row] });
+  const msg = await canal.send({ embeds: [embed], components: [row] });
+  // tenta fixar; se não tiver permissão, só ignora
+  try { await msg.pin(); } catch (_) {}
 }
 
 module.exports = { enviarMensagemDeVerificacao };
