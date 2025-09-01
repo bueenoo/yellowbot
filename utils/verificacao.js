@@ -1,13 +1,26 @@
-const {
-  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
-} = require('discord.js');
 
-async function enviarMensagemDeVerificacao(canal) {
-  if (!canal) return;
+// utils/verificacao.js
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ensureSendable } = require('./check-perms');
+
+async function enviarMensagemDeVerificacao(channel) {
+  // 🔒 Verifica permissões antes de tentar enviar
+  const check = await ensureSendable(channel);
+  if (!check.ok) {
+    console.error('❌ Falta de permissões no canal de verificação:', {
+      canalId: channel.id,
+      missing: check.missing || check.error?.message,
+    });
+    return;
+  }
+
   const embed = new EmbedBuilder()
-    .setColor('#000000')
-    .setTitle('🌐 Selecione seu idioma • Selecciona tu idioma')
-    .setDescription('Escolha abaixo para continuar a verificação no seu idioma.\nElige abajo para continuar la verificación en tu idioma.');
+    .setColor('#111827')
+    .setTitle('🌍 Selecione seu idioma • Selecciona tu idioma')
+    .setDescription(
+      'Escolha abaixo para continuar a verificação no seu idioma.\n' +
+      'Elige abajo para continuar la verificación en tu idioma.'
+    );
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('lang_pt').setLabel('🇧🇷 Português').setStyle(ButtonStyle.Primary),
@@ -15,16 +28,19 @@ async function enviarMensagemDeVerificacao(canal) {
   );
 
   try {
-    const fetched = await canal.messages.fetch({ limit: 20 }).catch(() => null);
-    const antiga = fetched?.find(m => m.pinned && m.author?.bot && m.embeds?.[0]?.title?.includes('Selecione seu idioma'));
-    if (antiga) {
-      await antiga.edit({ embeds: [embed], components: [row] });
-      return;
-    }
-  } catch {}
+    const msg = await channel.send({ embeds: [embed], components: [row] });
 
-  const msg = await canal.send({ embeds: [embed], components: [row] });
-  try { await msg.pin(); } catch {}
+    // 📌 Tenta fixar
+    try {
+      await msg.pin();
+    } catch (e) {
+      console.warn('⚠️ Não consegui fixar a mensagem (Manage Messages ausente?):', e.message);
+    }
+
+    console.log('📌 Mensagem de idioma enviada e fixada.');
+  } catch (err) {
+    console.error('Erro ao enviar mensagem de verificação:', err);
+  }
 }
 
 module.exports = { enviarMensagemDeVerificacao };
