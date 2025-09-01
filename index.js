@@ -2,16 +2,14 @@ require('dotenv').config();
 const {
   Client, GatewayIntentBits, Partials,
   EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle
-} = require('discord.js');
+  MessageFlags } = require('discord.js');
 
-const {
-  canalVerificacao, rolePT, roleES,
-  canalPT, canalES, canalWhitelist, canalCadastroPVE
-} = require('./config.json');
+const { canalVerificacao, rolePT, roleES, canalPT, canalES, canalWhitelist, canalCadastroPVE, canalEspera, canalWhitelistRespostas, canalWlReprovadoPT, canalWlReprovadoES } = require('./config.json');
 
 const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
 const { buildPT } = require('./utils/verificacao-pt');
 const { buildES } = require('./utils/verificacao-es');
+const { startWL, handleStaffActions, handleModal } = require('./utils/wl');
 
 const token = process.env.token;
 if (!token) {
@@ -59,7 +57,7 @@ client.on('interactionCreate', async (interaction) => {
     } catch (e) {
       console.error('Erro lang_pt:', e);
       if (!interaction.replied) {
-        await interaction.reply({ content: '❗ Não foi possível definir o idioma.', ephemeral: true });
+        await interaction.reply({ content: '❗ Não foi possível definir o idioma.', flags: MessageFlags.Ephemeral });
       }
     }
     return;
@@ -76,40 +74,51 @@ client.on('interactionCreate', async (interaction) => {
     } catch (e) {
       console.error('Erro lang_es:', e);
       if (!interaction.replied) {
-        await interaction.reply({ content: '❗ No fue posible definir el idioma.', ephemeral: true });
+        await interaction.reply({ content: '❗ No fue posible definir el idioma.', flags: MessageFlags.Ephemeral });
       }
     }
     return;
   }
 
-  // Fluxo PT: RP / PVE
+// Início WL PT / ES
   if (interaction.customId === 'ver_pt_rp') {
+    return startWL(interaction, 'pt', { canalEspera, canalWhitelistRespostas });
+  }
+  if (interaction.customId === 'ver_es_rp') {
+    return startWL(interaction, 'es', { canalEspera, canalWhitelistRespostas });
+  }
+
+  // Ações da staff (aprovar/reprovar)
+  const acted = await handleStaffActions(interaction, { canalWhitelistRespostas, canalWlReprovadoPT, canalWlReprovadoES }, cargoRP);
+  if (acted) return;
+  // Fluxo PT: RP / PVE
+  if (interaction.customId === 'ver_pt_pve') {
     await interaction.reply({
       content: `📄 Vá até <#${canalWhitelist}> e siga as instruções para preencher sua **whitelist** em PT.\nApós enviar, aguarde em <#1402205533272014858>.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
   if (interaction.customId === 'ver_pt_pve') {
     await interaction.reply({
       content: `⚔️ Para PVE em PT: envie sua **Steam ID** em <#${canalCadastroPVE}>. Após validado, seu acesso será liberado.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
 
   // Flujo ES: RP / PVE
-  if (interaction.customId === 'ver_es_rp') {
+  if (interaction.customId === 'ver_es_pve') {
     await interaction.reply({
       content: `📄 Ve a <#${canalWhitelist}> y completa tu **whitelist** en ES.\nLuego espera en <#1402205533272014858>.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
   if (interaction.customId === 'ver_es_pve') {
     await interaction.reply({
       content: `⚔️ Para PVE en ES: envía tu **Steam ID** en <#${canalCadastroPVE}>. Tras validación, tu acceso será liberado.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -125,3 +134,10 @@ client.on('interactionCreate', async (interaction) => {
     process.exit(1);
   }
 })();
+
+client.on('interactionCreate', async (interaction) => {
+  if (interaction.isModalSubmit()) {
+    const done = await handleModal(interaction, { canalWlReprovadoPT, canalWlReprovadoES });
+    if (done) return;
+  }
+});
