@@ -1,4 +1,3 @@
-// utils/verificacao.js
 const {
   EmbedBuilder,
   ActionRowBuilder,
@@ -18,18 +17,11 @@ async function enviarMensagemDeVerificacao(canal) {
     );
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('lang_pt')
-      .setLabel('🇧🇷 Português')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('lang_es')
-      .setLabel('🇪🇸 Español')
-      .setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId('lang_pt').setLabel('🇧🇷 Português').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('lang_es').setLabel('🇪🇸 Español').setStyle(ButtonStyle.Secondary),
   );
 
   const msg = await canal.send({ embeds: [embed], components: [row] });
-  // tenta fixar; se não tiver permissão, só ignora
   try { await msg.pin(); } catch (_) {}
 }
 
