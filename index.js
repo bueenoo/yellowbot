@@ -16,13 +16,14 @@ const {
   canalES,
 } = require('./config.json');
 
+const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
+
 const token = process.env.token;
 if (!token) {
   console.error('[ERRO] Variável de ambiente "token" não encontrada. Configure no Railway em Variables → token');
   process.exit(1);
 }
 
-// cria o cliente
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -34,17 +35,12 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-// logs de debug
 process.on('unhandledRejection', (reason) => console.error('[unhandledRejection]', reason));
 process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));
 
 client.on('error', (e) => console.error('[client.error]', e));
 client.on('warn', (w) => console.warn('[client.warn]', w));
 
-/**
- * Evento principal
- * OBS: no discord.js v15+ usa "clientReady"
- */
 client.once('clientReady', async () => {
   console.log(`✅ Bot iniciado como ${client.user.tag} (id: ${client.user.id})`);
 
@@ -59,7 +55,6 @@ client.once('clientReady', async () => {
   }
 
   try {
-    const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
     const ch = await client.channels.fetch(canalVerificacao);
     await enviarMensagemDeVerificacao(ch);
     console.log('📌 Mensagem de verificação enviada/fixada.');
@@ -68,10 +63,6 @@ client.once('clientReady', async () => {
   }
 });
 
-// aqui você coloca os outros listeners que já tinha
-// ex: interactionCreate para lidar com botões, whitelist etc.
-
-// login
 (async () => {
   console.log('[LOGIN] Tentando logar...');
   try {
