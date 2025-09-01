@@ -1,27 +1,35 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const { canalMensagemVerificacao } = require('./config.json');
+// utils/verificacao.js
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require('discord.js');
 
-async function enviarMensagemDeVerificacao(client, channelId = null) {
-  const alvo = channelId ?? canalMensagemVerificacao;
-  const canal = await client.channels.fetch(alvo);
-  if (!canal) throw new Error('Canal de verificação não encontrado.');
-
+async function enviarMensagemDeVerificacao(canal) {
   const embed = new EmbedBuilder()
-    .setColor(0x000000)
-    .setTitle('Black • Verificação de Acesso')
-    .setDescription([
-      'Escolha abaixo para continuar:',
-      '• **Black RP**: iniciar whitelist por DM, baseada na lore do servidor.',
-      '• **Black PVE**: cadastrar sua Steam ID e liberar acesso ao PVE.'
-    ].join('\n'));
+    .setColor('#000000')
+    .setTitle('🌐 Selecione seu idioma • Selecciona tu idioma')
+    .setDescription(
+      [
+        'Escolha abaixo para continuar a verificação no seu idioma.',
+        'Elige abajo para continuar la verificación en tu idioma.',
+      ].join('\n')
+    );
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('verificar_rp').setLabel('🎭 Black RP').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('verificar_pve').setLabel('⚔️ Black PVE').setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder()
+      .setCustomId('lang_pt')
+      .setLabel('🇧🇷 Português')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('lang_es')
+      .setLabel('🇪🇸 Español')
+      .setStyle(ButtonStyle.Secondary)
   );
 
-  await canal.send({ embeds: [embed], components: [row] });
-  console.log('✅ Mensagem de verificação publicada.');
+  const msg = await canal.send({ embeds: [embed], components: [row] });
+  try { await msg.pin(); } catch (_) {}
 }
 
 module.exports = { enviarMensagemDeVerificacao };
