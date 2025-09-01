@@ -1,17 +1,24 @@
 {
+  "clientId": "1401945111121756170",
   "guildId": "1401233767246467333",
-  "verificationChannelId": "1401950478761332776",
-  "whitelistChannelId": "1401950755031748628",
-  "waitingChannelId": "1402205533272014858",
-  "pveRegisterChannelId": "1401951160629461002",
-  "ptInfoChannelId": "1401950359106355321",
-  "esInfoChannelId": "1411982536405418154",
+  "canalVerificacao": "1401950478761332776",
+  "canalAbrirTicket": "1401951493539758152",
+  "categoriaTickets": "1401951450078117959",
+  "canalLogTickets": "1402195335048204298",
+  "canalWhitelist": "1401950755031748628",
+  "canalEsperaAprovacao": "1402205533272014858",
+  "canalWLReprovadosPT": "1402206198668853299",
+  "canalWLReprovadosES": "1412024192466944090",
+  "canalCadastroPVE": "1401951160629461002",
+  "canalInfoPT": "1401950359106355321",
+  "canalInfoES": "1411982536405418154",
+  "cargoRP": "1401248793965629502",
+  "cargoPVE": "1401248503987962028",
   "rolePT": "1411977536388468799",
   "roleES": "1411977277914353767",
-  "roleRP": "1401248793965629502",
-  "rolePVE": "1401248503987962028",
-  "staffWhitelistReviewChannelId": "1401951752055427152",
-  "wlRejectedPTChannelId": "1402206198668853299",
-  "wlRejectedESChannelId": "1412024192466944090",
-  "staffPVELogChannelId": "1402195335048204298"
+  "adminRoleId": "1401248428280778914",
+  "staffRoles": [
+    "1401235779748892694",
+    "1411977603102933103"
+  ]
 }

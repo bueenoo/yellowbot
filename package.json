@@ -1,11 +1,8 @@
 {
   "name": "blackbot",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "main": "index.js",
   "type": "commonjs",
-  "engines": {
-    "node": ">=18"
-  },
   "scripts": {
     "start": "node index.js"
   },
