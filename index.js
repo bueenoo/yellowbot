@@ -1,5 +1,3 @@
-const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
-
 require('dotenv').config();
 
 const {
@@ -25,13 +23,14 @@ const {
   canalES,
 } = require('./config.json');
 
+// ✅ APENAS ESTE import do util:
+const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
+
 const token = process.env.token;
 
-// canais auxiliares (mantém os que você já usa)
+// canais auxiliares
 const WL_REPROVADOS_CHANNEL_ID = '1402206198668853299';
 const CANAL_ESPERA_APROVACAO_ID = '1402205533272014858';
-
-const { enviarMensagemDeVerificacao } = require('./utils/verificacao');
 
 const client = new Client({
   intents: [
@@ -84,17 +83,6 @@ function strings(locale) {
         '❗ Ocurrió un error al iniciar tu whitelist. Habilita DMs de miembros del servidor y vuelve a intentarlo.',
       pveMsg:
         '⚔️ Ve al canal <#1401951160629461002> y envía tu **Steam ID** para el registro.',
-      staffApprovedUser: '✅ Usuario aprobado y rol aplicado.',
-      staffUserNotFound: 'Usuario no encontrado.',
-      staffRoleNotFound: 'Rol RP no encontrado.',
-      staffApproveDM: '✅ ¡Tu whitelist **fue aprobada**! Bienvenido a Black RP.',
-      staffRejectModalTitle: 'Motivo de la denegación',
-      staffRejectModalLabel: 'Explica el motivo',
-      staffRejectLogged: 'Denegación registrada.',
-      staffRejectDM: (reason) =>
-        `❌ Tu whitelist **fue denegada**.\n📝 Motivo: ${reason}`,
-      staffRejectPublic: (userId, reason) =>
-        `❌ **Whitelist Denegada**\n👤 Usuario: <@${userId}> (${userId})\n📝 Motivo: ${reason}`,
     };
   }
   // pt-BR padrão
@@ -125,18 +113,6 @@ function strings(locale) {
       '❗ Ocorreu um erro ao iniciar sua whitelist. Habilite DMs de membros do servidor e tente novamente.',
     pveMsg:
       '⚔️ Vá até o canal <#1401951160629461002> e envie sua **Steam ID** para cadastro.',
-    staffApprovedUser: '✅ Usuário aprovado e cargo aplicado.',
-    staffUserNotFound: 'Usuário não encontrado.',
-    staffRoleNotFound: 'Cargo RP não encontrado.',
-    staffApproveDM:
-      '✅ Sua whitelist **foi aprovada**! Bem-vindo ao Black RP.',
-    staffRejectModalTitle: 'Motivo da reprovação',
-    staffRejectModalLabel: 'Explique o motivo',
-    staffRejectLogged: 'Reprovação registrada.',
-    staffRejectDM: (reason) =>
-      `❌ Sua whitelist **foi reprovada**.\n📝 Motivo: ${reason}`,
-    staffRejectPublic: (userId, reason) =>
-      `❌ **Whitelist Reprovada**\n👤 Usuário: <@${userId}> (${userId})\n📝 Motivo: ${reason}`,
   };
 }
 
@@ -155,15 +131,15 @@ client.on('interactionCreate', async (interaction) => {
       if (roleId) await member.roles.add(roleId).catch(() => {});
     } catch (e) { console.error('Erro ao aplicar cargo de idioma:', e); }
 
-    // 1.2 liberar canal PT/ES (permissão individual; use roles no servidor para controle definitivo)
+    // 1.2 liberar canal PT/ES (permite visualização; controle definitivo via roles no servidor)
     try {
       const channelId = isPT ? canalPT : canalES;
       if (channelId) {
-        const ch = await client.channels.fetch(channelId);
+        const ch = await interaction.client.channels.fetch(channelId);
         await ch.permissionOverwrites.edit(interaction.user.id, {
           ViewChannel: true,
           ReadMessageHistory: true,
-          SendMessages: false, // leitura somente ao entrar
+          SendMessages: false,
         }).catch(() => {});
       }
     } catch (e) { console.error('Erro ao liberar canal de idioma:', e); }
@@ -189,7 +165,7 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
-  /* 2) Black RP no idioma escolhido */
+  /* 2) Black RP no idioma escolhido (inicia whitelist por DM) */
   if (interaction.isButton() && interaction.customId.startsWith('verificar_rp:')) {
     const locale = interaction.customId.split(':')[1] || 'pt';
     const t = strings(locale);
@@ -210,30 +186,30 @@ client.on('interactionCreate', async (interaction) => {
         return collected.first().content.trim();
       };
 
-      const nome = await ask(t.askName);
-      const idade = await ask(t.askAge);
-      const steamId = await ask(t.askSteam);
+      const nome = await ask(strings(locale).askName);
+      const idade = await ask(strings(locale).askAge);
+      const steamId = await ask(strings(locale).askSteam);
 
       const expRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('exp_sim').setLabel(t.btnYes).setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('exp_nao').setLabel(t.btnNo).setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('exp_sim').setLabel(strings(locale).btnYes).setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('exp_nao').setLabel(strings(locale).btnNo).setStyle(ButtonStyle.Danger)
       );
-      const perguntaExp = await dm.send({ content: t.askExp, components: [expRow] });
+      const perguntaExp = await dm.send({ content: strings(locale).askExp, components: [expRow] });
       const expInteraction = await perguntaExp.awaitMessageComponent({
         filter: (i) => i.user.id === user.id,
         time: 5 * 60 * 1000,
       });
-      const experiencia = expInteraction.customId === 'exp_sim' ? t.btnYes : t.btnNo;
+      const experiencia = expInteraction.customId === 'exp_sim' ? strings(locale).btnYes : strings(locale).btnNo;
       await expInteraction.update({
-        content: `🎭 ${t.askExp.replace(/\*\*/g, '')} **${experiencia}**`,
+        content: `🎭 ${strings(locale).askExp.replace(/\*\*/g, '')} **${experiencia}**`,
         components: [],
       });
 
       let historia = '';
       while (true) {
-        historia = await ask(t.askStory);
+        historia = await ask(strings(locale).askStory);
         if (historia.length <= 250) break;
-        await dm.send(t.storyTooLong);
+        await dm.send(strings(locale).storyTooLong);
       }
 
       const embed = new EmbedBuilder()
@@ -267,13 +243,13 @@ client.on('interactionCreate', async (interaction) => {
         }).catch(() => {});
       } catch {}
 
-      await dm.send(t.rpSentToStaff);
+      await dm.send(strings(locale).rpSentToStaff);
     } catch (err) {
       console.error('Erro no fluxo de whitelist RP:', err);
       if (!interaction.replied) {
-        await interaction.reply({ content: t.rpDMError, flags: 64 });
+        await interaction.reply({ content: strings(locale).rpDMError, flags: 64 });
       } else {
-        try { await interaction.user.send(t.rpDMError); } catch {}
+        try { await interaction.user.send(strings(locale).rpDMError); } catch {}
       }
     }
     return;
@@ -282,9 +258,8 @@ client.on('interactionCreate', async (interaction) => {
   /* 3) Black PVE no idioma escolhido */
   if (interaction.isButton() && interaction.customId.startsWith('verificar_pve:')) {
     const locale = interaction.customId.split(':')[1] || 'pt';
-    const t = strings(locale);
     try {
-      await interaction.reply({ content: t.pveMsg, flags: 64 });
+      await interaction.reply({ content: strings(locale).pveMsg, flags: 64 });
     } catch (err) { console.error('Erro PVE:', err); }
     return;
   }
@@ -356,5 +331,4 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-/* login */
 client.login(token);
