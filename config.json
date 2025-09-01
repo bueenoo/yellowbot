@@ -1,14 +1,17 @@
 {
-  "canalWhitelistRespostas": "1401951752055427152",
-  "canalRPForm": "1401950755031748628",
-  "canalPVEForm": "1401951160629461002",
-  "canalEsperaRP": "1402205533272014858",
-  "canalReprovados": "1402206198668853299",
-  "canalRegistroPVE": "1402195335048204298",
-  "allowedInfoChannel": "1402172138395271239",
-  "canalMensagemVerificacao": "1401950478761332776",
+  "clientId": "1401945111121756170",
+  "guildId": "1401233767246467333",
+
   "cargoRP": "1401248793965629502",
   "cargoPVE": "1401248503987962028",
-  "staffRoleId": "1401235779748892694",
-  "canalArquivosTickets": "1401951731541213234"
+
+  "canalVerificacao": "1401950478761332776",
+  "canalWhitelistRespostas": "1401951520114737193",
+  "categoriaTickets": "1401951450078117959",
+
+  "rolePT": "1411977536388468799",
+  "roleES": "1411977277914353767",
+
+  "canalPT": "1401950359106355321",
+  "canalES": "1411982536405418154"
 }
