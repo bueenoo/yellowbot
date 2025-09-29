@@ -1,11 +1,15 @@
 {
-  "name": "blackbot",
-  "version": "1.8.1",
+  "name": "blackbot-wl-pve-rp",
+  "version": "1.0.0",
+  "description": "Blackbot – fluxo de WL (RP) e cadastro PvE com botão de uso único, seleção de idioma e escolha de servidor. Discord.js v14.",
+  "type": "module",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "send:verify": "node tools/sendLanguageMessage.js"
   },
+  "author": "Blackbot",
+  "license": "MIT",
   "dependencies": {
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5"
